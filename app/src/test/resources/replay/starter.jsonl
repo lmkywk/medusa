@@ -1,0 +1,19 @@
+# 4.0.0 starter corpus（回放语料）
+# 一行一个用例，JSONL。字段说明见 tools/replay/README.md。
+# 本文件先用已知的响应信封形状做 starter；数据期再用真实抓包替换/补充（替换前必须过脱敏）。
+# 明文里不允许出现真实 uid / 好友 / 令牌；<redacted> 是脱敏后的占位。
+
+{"id":"ocean_task_receive_1009","domain":"ocean","method":"alipay.antocean.antiep.task.receive","expect":{"outcome":"C1009","signal":"SERVER_REFUSAL"},"response":"{\"error\":\"1009\",\"errorMsg\":\"请完成安全验证\"}","note":"任务领奖被服务端拒绝"}
+{"id":"farm_tasklist_1004","domain":"farm","method":"alipay.antfarm.antiep.tasklist.query","expect":{"outcome":"C1004","signal":"LIMIT"},"response":"{\"errorTip\":\"1004\",\"memo\":\"当前操作过于频繁\"}","note":"限流，只暂停当前域"}
+{"id":"orchard_102_retry","domain":"orchard","method":"alipay.antorchard.task.trigger","expect":{"outcome":"OK","signal":"NONE"},"response":"{\"error\":\"102\",\"memo\":\"请稍后重试\"}","note":"102 是可重试返回，不算失败"}
+{"id":"farm_draw_unsupported","domain":"farm","method":"alipay.antfarm.draw.receive","expect":{"outcome":"FAIL","signal":"NONE"},"response":"{\"error\":\"400000040\",\"errorMsg\":\"不支持rpc调用\"}","note":"400000040 走兜底，不是风控"}
+{"id":"forest_collect_success","domain":"forest.collect","method":"alipay.antforest.collectEnergy","expect":{"outcome":"OK","signal":"NONE"},"response":"{\"success\":true,\"result\":{\"resultCode\":\"100\",\"bubbleCount\":3}}","note":"正常成功"}
+{"id":"empty_response","domain":"unknown","method":"alipay.antforest.queryEnergyRanking","expect":{"outcome":"EMPTY","signal":"NONE"},"response":"","note":"宿主离线/登录异常时空响应"}
+{"id":"nonjson_1009_envelope","domain":"sports","method":"alipay.antsportshealth.task.receive","expect":{"outcome":"C1009","signal":"SERVER_REFUSAL"},"response":"<html>{\"error\":1009,\"errorTip\":\"1009\"}</html>","note":"非 JSON 信封也要认出来"}
+{"id":"resultcode_1009","domain":"ocean","method":"alipay.antocean.antiep.touchfish","expect":{"outcome":"C1009","signal":"SERVER_REFUSAL"},"response":"{\"result\":{\"resultCode\":\"1009\"}}","note":"resultCode 在 result 里"}
+{"id":"risk_wording","domain":"member","method":"alipay.antmember.task.receive","expect":{"outcome":"FAIL","signal":"SERVER_REFUSAL"},"response":"{\"error\":\"5000\",\"resultView\":\"操作异常，请稍后再试\"}","note":"文案命中风控，码是 5000"}
+{"id":"oauth_success_flag","domain":"golden","method":"alipay.goldenbeans.signin","expect":{"outcome":"OK","signal":"NONE"},"response":"{\"success\":true,\"memo\":\"签到成功\"}","note":"普通成功"}
+{"id":"task_autocomplete_claim","domain":"dodo","method":"alipay.antdodo.task.list","expect":{"kind":"CLAIM"},"input":{"content":"每日签到","timeCount":0,"autoComplete":true},"response":"{\"success\":true}","note":"服务端已自动完成"}
+{"id":"task_timed_wait","domain":"orchard","method":"alipay.antorchard.task.list","expect":{"kind":"WAIT"},"input":{"content":"看视频得肥料","timeCount":15,"autoComplete":false},"response":"{\"success\":true}","note":"时间型任务"}
+{"id":"task_transaction_real_action","domain":"ocean","method":"alipay.antocean.antiep.tasklist.query","expect":{"kind":"REAL_ACTION"},"input":{"content":"完成订单领奖励","timeCount":20,"autoComplete":false},"response":"{\"success\":true}","note":"交易类即使带 timeCount 也不许伪申报"}
+{"id":"task_unknown","domain":"unknown","method":"alipay.antfarm.antiep.tasklist.query","expect":{"kind":"UNKNOWN"},"input":{"content":"","timeCount":0,"autoComplete":false},"response":"{\"success\":true}","note":"字段不足，保守转手动"}

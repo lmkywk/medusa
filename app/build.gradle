@@ -1,0 +1,165 @@
+apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
+
+android {
+    def version = project.getProperties().get("version")
+    if (version == null || "unspecified".equalsIgnoreCase(version)) {
+        // 默认版本号；正式发布时由 CI 通过 -Pversion=<tag> 覆盖
+        version = "4.1.0"
+    }
+    // 分身里的 UI 试验包：只补演示数据，其余构建与正式包一致
+    def uiDemo = project.hasProperty("uiDemo") || project.hasProperty("uiPreview")
+    // 独立包名的 UI 试验包：可与正式版同机共存，数据目录和执行广播都与正式版隔离
+    def uiPreview = project.hasProperty("uiPreview")
+    project.ext.appVersion = version
+    // 取 git 信息：用 providers.exec 而不是 '.execute()'——
+    // 前者把输出登记为配置输入（commit 变了配置缓存才会失效），且退出码可判；
+    // '.execute()' 既不进配置缓存，失败时还只会静默拿到空串。
+    def gitOutput = { List<String> args ->
+        try {
+            def exec = providers.exec {
+                commandLine((['git'] + args) as String[])
+                ignoreExitValue = true
+            }
+            if (exec.result.get().exitValue != 0) {
+                return null
+            }
+            def out = exec.standardOutput.asText.get().trim()
+            return out.isEmpty() ? null : out
+        } catch (Exception ignored) {
+            return null
+        }
+    }
+    def gitCommitHash = gitOutput(['rev-parse', '--short', 'HEAD']) ?: "unknown"
+    def gitBranchName = gitOutput(['rev-parse', '--abbrev-ref', 'HEAD']) ?: "unknown"
+    def buildTime = new Date().format("yyyy-MM-dd HH:mm:ss", TimeZone.getTimeZone("Asia/Shanghai"))
+
+    compileSdk 37
+    namespace 'io.github.aw1y2z.sesame'
+    defaultConfig {
+        applicationId uiPreview ? "com.medusa.alipay.ui" : "com.medusa.alipay"
+        minSdk 26
+        //noinspection ExpiredTargetSdkVersion
+        targetSdk 34
+        versionCode uiDemo ? 41035 : 41034
+        versionName version
+
+        buildConfigField "boolean", "UI_DEMO", uiDemo ? "true" : "false"
+        buildConfigField "boolean", "UI_PREVIEW", uiPreview ? "true" : "false"
+        manifestPlaceholders = [appLabel: uiPreview ? "美杜莎·UI试验" : "@string/app_name"]
+
+        buildConfigField "String", "GIT_COMMIT_HASH", "\"${gitCommitHash}\""
+        buildConfigField "String", "GIT_BRANCH_NAME", "\"${gitBranchName}\""
+        buildConfigField "String", "BUILD_TIME", "\"${buildTime}\""
+    }
+    buildFeatures {
+        buildConfig = true // 显式启用 BuildConfig
+        compose = true
+    }
+    ext {
+        applicationName = "Medusa"
+        applicationType = "Normal"
+    }
+    def keystorePropsFile = rootProject.file("keystore.properties")
+    signingConfigs {
+        if (keystorePropsFile.exists()) {
+            release {
+                def keystoreProps = new Properties()
+                keystorePropsFile.withInputStream { keystoreProps.load(it) }
+                storeFile = rootProject.file(keystoreProps['storeFile'])
+                storePassword = keystoreProps['storePassword']
+                keyAlias = keystoreProps['keyAlias']
+                keyPassword = keystoreProps['keyPassword']
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
+    }
+    flavorDimensions.add("default")
+    productFlavors {
+        normal {
+            dimension "default"
+            ext.applicationType = "Normal"
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (keystorePropsFile.exists()) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+    // 按 ABI 拆分 APK：仅发布 arm 主流架构，保留 universal 全架构兜底包
+    splits {
+        abi {
+            enable true
+            reset()
+            include "armeabi-v7a", "arm64-v8a"
+            universalApk true
+        }
+    }
+    packaging {
+        resources {
+            merges += "META-INF/xposed/**"
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    testOptions {
+        unitTests {
+            // golden test 只跑纯逻辑；Android 方法未 mock 时返回默认值而不是抛异常
+            returnDefaultValues = true
+        }
+    }
+}
+
+androidComponents {
+    onVariants(selector().withBuildType('release')) { variant ->
+        variant.outputs.forEach { output ->
+            // 按 ABI 区分产物名：arm64-v8a / armeabi-v7a；无 ABI filter 的为 universal 兜底包
+            String abiTag = "-universal"
+            output.getFilters().forEach { f ->
+                if (f.getFilterType().name() == 'ABI') {
+                    abiTag = "-" + f.getIdentifier()
+                }
+            }
+            output.outputFileName.set("Medusa-V${project.appVersion}${abiTag}.apk")
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.8.0'
+    compileOnly 'io.github.libxposed:api:102.0.0'
+    implementation 'io.github.libxposed:service:102.0.0'
+    compileOnly group: 'org.projectlombok', name: 'lombok', version: '1.18.48'
+    annotationProcessor group: 'org.projectlombok', name: 'lombok', version: '1.18.48'
+    implementation 'com.elvishew:xlog:1.11.1'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+
+    implementation group: 'com.fasterxml.jackson.core', name: 'jackson-core', version: '2.22.3'
+    implementation group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.22.3'
+    // annotations 走独立版本线：只有 2.22，没有 2.22.3，勿与 core/databind 对齐
+    implementation group: 'com.fasterxml.jackson.core', name: 'jackson-annotations', version: '2.22'
+
+    // NanoHTTPD 核心依赖（最新稳定版）
+    implementation 'org.nanohttpd:nanohttpd:2.3.1'
+
+    // Kotlin + Compose（miuix UI 重构基础）
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:2.4.20"
+    implementation "androidx.activity:activity-compose:1.13.0"
+    implementation "top.yukonga.miuix.kmp:miuix-ui:0.9.4"
+    implementation "top.yukonga.miuix.kmp:miuix-preference:0.9.4"
+    implementation "androidx.compose.material:material-icons-extended:1.7.8"
+    // 导航栏的真背景模糊（液态玻璃），低版本自动降级
+    implementation "dev.chrisbanes.haze:haze:1.7.3"
+
+    // 4.0.0 golden test：纯 JVM，不依赖设备
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+}
