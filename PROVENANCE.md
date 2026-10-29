@@ -13,13 +13,19 @@ are not official.
 | Public version | `5.9.0` |
 | `versionCode` | `59000` |
 | Release tag | `v5.9.0` |
-| Build commit | `0fda2ce` (source repository) |
+| Build commit | `0fda2ce` (private build mirror) |
+| Public snapshot | tag `v5.9.0` in this repository (authoritative source) |
 | Build fingerprint | `medusa-5.9.0-0fda2ce` |
 | Release certificate SHA-256 | `0699038ea17842a49eaec941360e33723d1a547ad0c82f36932322265c986016` |
 | Module APK (arm64) SHA-256 | `ebba1fd0c30d9157311128f64365de85b62837aaed0d2538804e9a277db057ea` |
 | Module APK (universal) SHA-256 | `3a84aec2164a2997de3b562b8a9025bff24db893923ba6fa9a42233bf2cd568a` |
 | Host APK | **not published**; user-supplied |
 | Signing key | **not published**; never commit it |
+
+`0fda2ce` is the private build-mirror commit used to produce the official
+binary. The public `v5.9.0` tag is the authoritative source snapshot; its
+module code is identical. Verify authenticity with the APK hash and signing
+certificate above, not by guessing a private commit.
 
 ## What the fingerprint means
 
