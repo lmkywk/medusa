@@ -1,7 +1,7 @@
 # P0 核心契约与冻结清单
 
 > 项目：Medusa / Alpay 注入模块  
-> 基线：`1a43622`（3.2.0，host 10.8.30.8000，账号 2088000000000000）  
+> 历史契约基线：`1a43622`（3.2.0，host 10.8.30.8000，账号 2088000000000000）；当前发布版本 5.9.0。
 > 日期：2026-10-25  
 > 状态：五条决策已确认，进入 P0 实现  
 > 原则：只对齐事实与契约，不改任务行为、不改设置默认值、不动域逻辑。
@@ -212,7 +212,7 @@ P0 只报告，不阻止任务；P1 才用 `MISSING` 生成 `BLOCKED_CAPABILITY`
     "startedAt": 1792890000000,
     "uptimeMs": 5628817,
     "hostVersion": "10.8.30.8000",
-    "moduleVersion": "3.2.0",
+    "moduleVersion": "5.9.0",
     "hookReady": true,
     "lastStartReason": "unknown"
   },
@@ -277,7 +277,7 @@ P0 只报告，不阻止任务；P1 才用 `MISSING` 生成 `BLOCKED_CAPABILITY`
   },
   "device": {
     "manufacturer": "samsung",
-    "model": "SM-S9480",
+    "model": "Android 16 test device",
     "android": "16",
     "oneUI": "8.0.x",
     "idle": false,
@@ -511,7 +511,7 @@ P0 只建立映射，不改历史 `reason` 字段；P1 才在 `PlanHistory.Recor
 系统状态
 ├─ 账号与进程
 │  ├─ 账号：演示账号 (2088000000000000)
-│  ├─ 宿主：10.8.30.8000 / 模块：3.2.0
+│  ├─ 宿主：10.8.30.8000 / 模块：5.9.0
 │  └─ Hook：正常 · 启动于 10:53
 ├─ 运行能力
 │  ├─ 存储：OK / 闹钟：OK / 电池：OK
@@ -530,7 +530,7 @@ P0 只建立映射，不改历史 `reason` 字段；P1 才在 `PlanHistory.Recor
 │  ├─ 账本：2026-10-25 · 09:00 同步 · 271 任务
 │  └─ 日志：14 个文件 · 162.9 MB
 └─ 设备与 OEM
-   ├─ SM-S9480 · Android 16 · One UI 8.0
+   ├─ Samsung Android 16 test device
    └─ 疑似强停：否 / 排查指引
 ```
 

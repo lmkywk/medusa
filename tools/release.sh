@@ -77,6 +77,8 @@ else
   DIRTY=""
 fi
 echo "commit=$COMMIT branch=$BRANCH"
+FINGERPRINT="medusa-${VERSION}-${COMMIT}"
+echo "fingerprint=$FINGERPRINT"
 
 step "2. 单元测试"
 if [[ "$SKIP_TESTS" -eq 1 ]]; then
@@ -86,7 +88,11 @@ else
 fi
 
 step "3. 构建模块 APK"
-./gradlew :app:assembleNormalRelease --offline -Pversion="$VERSION"
+PROP="$MEDUSA/app/src/main/resources/META-INF/xposed/module.prop"
+grep -q "^version=${VERSION}$" "$PROP" \
+  || fail "module.prop version 不是 ${VERSION}（框架市场会读这个字段）"
+./gradlew :app:assembleNormalRelease --offline -Pversion="$VERSION" \
+  -PmedusaFingerprint="$FINGERPRINT"
 APK_DIR="$MEDUSA/app/build/outputs/apk/normal/release"
 UNIVERSAL="$APK_DIR/Medusa-V${VERSION}-universal.apk"
 ARM64="$APK_DIR/Medusa-V${VERSION}-arm64-v8a.apk"

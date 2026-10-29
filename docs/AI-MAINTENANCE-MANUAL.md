@@ -20,12 +20,33 @@ requiring the original author to ship new versions.
 
 ## 1. Baseline and source of truth
 
-- Baseline: module `4.1.22`, plan `layoutVersion=5`, host tested with
-  Alipay `10.8.30.8000` on Samsung `SM-S9480`.
+- Baseline: module `5.9.0`, plan `layoutVersion=5`, host tested with
+  Alipay `10.8.30.8000` on a Samsung Android 16 test device.
 - A release tag is the source of truth. Local changes are an overlay, not a
   new upstream. If a local fix is useful to others, propose a PR.
 - Record the host version, module version, device model, and test result in
   release notes.
+
+### 1.1 Official source and fingerprint
+
+Only this repository and its release tags are authoritative. Before installing
+or reporting, compare the in-app `process.fingerprint` in
+`system_status.json` and `ai/handoff-<date>.json` with `PROVENANCE.md`.
+A mismatch means the APK is unofficial. Never change the signing key without
+the user's explicit request; it breaks updates and invalidates the fingerprint.
+
+### 1.2 Agent update loop
+
+1. Read the latest release notes and `PROVENANCE.md`.
+2. Check out the official tag; keep user data and configuration.
+3. Run unit tests and a small device canary.
+4. Build the module; verify `moduleVersion` and `fingerprint`.
+5. Install the module; rebuild the host only if the host layer changed.
+6. Keep the previous APK, previous tag, and a data backup for rollback.
+7. Report old/new tag, fingerprint, test target, and result.
+
+Distribution rules are in `docs/DISTRIBUTION.md`: ship the module only, never
+the host APK, signing key, user data, or tokens.
 
 ## 2. Architecture map
 
@@ -137,7 +158,7 @@ Proposed change class (A/B/C):
 
 This is the "trusted help" input for the community/agent maintainers.
 
-## 11. Known issues at 4.1.22
+## 11. Known issues at 5.9.0
 
 - **Early-access build**: targeted flows were verified on 2026-10-29, but the
   full 02:00 nightly batch has not yet been re-run on this exact build.
@@ -151,7 +172,7 @@ This is the "trusted help" input for the community/agent maintainers.
 - Green finance is not activated for the test account; ancient tree
   conditions were not met.
 - Farm food storage cap limits claims; auto-feed is bounded (4 friends,
-  12 scans, 60s per round). On 4.1.22, 13 farm rewards remained
+  12 scans, 60s per round). On 5.9.0, 13 farm rewards remained
   `CLAIMABLE` because storage was 1759/1800g and no scanned friend had a
   hungry chicken.
 - Six known task lists are not yet in the task ledger: `AntForestHuntTaskList`

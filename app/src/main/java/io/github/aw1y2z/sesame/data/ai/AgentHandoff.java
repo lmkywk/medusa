@@ -77,6 +77,7 @@ public final class AgentHandoff {
             packet.put("day", safeDay);
             packet.put("generatedAt", System.currentTimeMillis());
             packet.put("moduleVersion", io.github.aw1y2z.sesame.BuildConfig.VERSION_NAME);
+            packet.put("fingerprint", io.github.aw1y2z.sesame.BuildConfig.MEDUSA_FINGERPRINT);
             packet.put("device", android.os.Build.MODEL);
             packet.put("android", android.os.Build.VERSION.RELEASE);
             packet.put("planLayoutVersion", planLayoutVersion(uid));

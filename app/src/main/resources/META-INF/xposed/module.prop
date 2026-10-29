@@ -1,3 +1,9 @@
+id=medusa
+name=Medusa
+version=5.9.0
+versionCode=59000
+author=Medusa Contributors
+description=Decentralized, agent-maintained assistant for Alipay daily tasks. Source-only; the Alipay host APK is not included.
 minApiVersion=102
 targetApiVersion=102
 staticScope=true

@@ -1,51 +1,116 @@
 # Medusa
 
-Medusa is a source-only, agent-maintainable assistant for Alipay daily tasks.
-It is derived from the Sesame family of projects and released under **GPL-3.0**.
+Medusa is a **source-only, decentralized assistant** for Alipay daily tasks.
+It is derived from the Sesame family and released under **GPL-3.0**.
 
-This repository is the **last known-good source baseline** and the
-maintenance contract for local agents. It intentionally does **not** ship:
+The project is built with **open-source AI assistance** and is itself fully
+open source. There is no central maintainer: users run a local AI agent,
+point it at this repository, and let it read the maintenance manual, diagnose
+local evidence, and update the module. User data stays on the user's device.
+
+This repository intentionally does **not** ship:
 
 - the Alipay host APK or any patched host output;
 - signing keys or release certificates;
-- user data, tokens, logs, or AI provider keys.
+- user data, accounts, logs, tokens, or AI provider keys.
 
 The host layer is the user's responsibility: obtain your own host package,
-build/patch it locally, and sign it with your own key. See `BUILDING.md`.
+patch it locally, and sign it with your own key. See `BUILDING.md` and
+`docs/DISTRIBUTION.md`.
 
-## Current baseline
+## Current release
 
-- Module version: `4.1.22`
+- Module version: `5.9.0`
 - Plan layout: `layoutVersion=5` (24 plans; 15 nightly batch items)
-- Tested host: Alipay `10.8.30.8000` on Samsung `SM-S9480` (Android 16)
-- Status: **early-access test baseline**. Targeted flows (fish chain,
-  claim reconciliation, ledger refresh, `未探明` status) were verified on
+- Tested host: Alipay `10.8.30.8000` on a Samsung Android 16 test device
+- Status: **early-access test baseline**. Targeted flows were verified on
   2026-10-29; the full 02:00 batch on this exact build is still pending.
 - This is a tested baseline, not a guarantee for other host versions.
-  See `docs/release-notes-4.1.22.md` for known limitations.
+- Known limitations: `docs/release-notes-5.9.0.md` and
+  `docs/AI-MAINTENANCE-MANUAL.md` §11.
 
-## Why this repository exists
+## Two ways to install
 
-The project is designed to be maintained by a local AI agent rather than by a
-central maintainer. The repository provides:
+### 1. Download the module APK
 
-- stable source and reproducible build instructions;
-- a machine-readable leaf-task event stream (`log/tasks.<date>.jsonl`);
-- a deterministic **AI handoff packet** (`ai/handoff-<date>.json`)
-  that gives the development AI problem classes, affected plans, ledger
-  claimables, and next probes in ~500–1200 tokens;
-- a maintenance manual that tells an agent how to diagnose, patch, test, and
-  roll back safely;
-- a contract for RPC endpoints, task capabilities, and failure signatures.
+Download the signed module APK from this repository's **Releases** page:
 
-Read `docs/AI-MAINTENANCE-MANUAL.md` first if you are an agent.
-Read `docs/AI-HANDOFF.md` for the local-AI → development-AI handoff.
-Read `docs/TASK-RUN-EVENT.md` for the event schema.
+- `Medusa-V5.9.0-module-arm64.apk` for most arm64 devices;
+- `Medusa-V5.9.0-module-universal.apk` when unsure.
+
+The release also contains `SHA256SUMS.txt`. The Alipay host APK is **not**
+included; patch your own host with npatch/LSPosed and install this module.
+
+### 2. Framework / module market
+
+The module is a normal Xposed/LSPosed module:
+
+- package: `com.medusa.alipay`
+- module metadata: `app/src/main/resources/META-INF/xposed/module.prop`
+- scope: `com.eg.android.AlipayGphone`
+- entry hook: `io.github.aw1y2z.sesame.hook.ApplicationHook`
+
+The release tag, asset names, `module.prop` fields, and market checklist are
+documented in `docs/DISTRIBUTION.md`. The host APK must not be redistributed
+by module markets.
+
+## Decentralized maintenance
+
+`Code is cheap; the agent is the maintainer.` A local agent should:
+
+1. read `AGENTS.md` and `docs/AI-MAINTENANCE-MANUAL.md`;
+2. read `log/tasks.<date>.jsonl`, status files, ledger summaries, and
+   `ai/handoff-<date>.json` (the compact local-AI → development-AI packet);
+3. diagnose the failing leaf task, endpoint, or plan;
+4. prefer config/plan changes over code changes;
+5. run unit tests, replay tests, and a device canary;
+6. verify the release fingerprint before installing;
+7. keep all user data local and never upload accounts, logs, or tokens.
+
+To update from a repository link, paste a prompt like this into a local agent:
+
+```text
+Read AGENTS.md and docs/AI-MAINTENANCE-MANUAL.md from <this-repository-url>.
+Update this Medusa installation to the latest release tag. Keep all user data
+local, do not touch the host APK or signing keys, run the unit tests and a
+device canary, and report the old/new fingerprint.
+```
+
+The agent-facing documents are:
+
+- `AGENTS.md` — bootstrap and safety rules;
+- `docs/AI-MAINTENANCE-MANUAL.md` — architecture, diagnosis, patch, test,
+  rollback;
+- `docs/AI-HANDOFF.md` — handoff packet schema;
+- `docs/TASK-RUN-EVENT.md` — leaf event schema;
+- `docs/P0-contracts.md` — RPC/task/ledger contracts.
+
+## Authenticity and fingerprint
+
+Only this repository and its release tags are the authoritative source.
+Forks and repackaged APKs are not official.
+
+Every official build carries a fingerprint that is written to
+`system_status.json` and `ai/handoff-<date>.json`, for example:
+
+```text
+medusa-5.9.0-0fda2ce
+```
+
+Before installing, compare it with `PROVENANCE.md`, which also records:
+
+- the official source tag and commit;
+- the signing certificate SHA-256;
+- the release APK SHA-256;
+- the build fingerprint.
+
+If the fingerprint, certificate, or APK hash does not match, do not install.
+See `PROVENANCE.md` for the exact values of 5.9.0.
 
 ## Layout
 
 - `app/` — module source (Java/Kotlin, resources)
-- `docs/` — AI manual, contracts, release notes, third-party licenses
+- `docs/` — AI manual, contracts, distribution, release notes, licenses
 - `tools/` — build/release helpers; host APK and keys are supplied by the user
 - `LICENSE` / `NOTICE.md` — GPL-3.0 and attribution
 
@@ -54,21 +119,15 @@ Read `docs/TASK-RUN-EVENT.md` for the event schema.
 You need JDK 21, Android SDK 37, your own Alipay host APK, your own keystore,
 and the build tools listed in `BUILDING.md`. No host APK or key is included.
 
-## Agent-maintained model
+```bash
+./gradlew :app:testNormalDebugUnitTest
+./gradlew :app:assembleNormalRelease -Pversion=5.9.0
+```
 
-A local agent should:
+`tools/release.sh 5.9.0` documents the full module → npatch host → sign →
+delivery flow. The patched host is **your** artifact; do not redistribute it.
 
-1. read `log/tasks.<date>.jsonl`, status files, and ledger summaries;
-2. diagnose the failing leaf task, endpoint, or plan;
-3. prefer config/plan changes over code changes;
-4. run unit tests, replay tests, and a device canary;
-5. ask the user before applying code or changing risk settings;
-6. keep a rollback snapshot.
+## License
 
-Do not upload raw logs or tokens. Keep data local.
-
-## Legal
-
-GPL-3.0. Alipay is a trademark of its owner. This project is not affiliated
-with or endorsed by Alipay. Use only where permitted by law and the applicable
-terms of service. No warranty.
+GPL-3.0. See `LICENSE` and `NOTICE.md`. Upstream Sesame attribution is kept
+in `NOTICE.md` and `docs/licenses/`.

@@ -26,6 +26,7 @@ instead of only RPC aggregates.
 | `day` | local day |
 | `generatedAt` | epoch millis |
 | `moduleVersion` | producer version |
+| `fingerprint` | official build/source fingerprint (verify with `PROVENANCE.md`) |
 | `device`, `android` | device context |
 | `planLayoutVersion` | plan layout version |
 | `tokenEstimate` | packet size / 4 |

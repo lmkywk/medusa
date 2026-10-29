@@ -5,7 +5,7 @@ android {
     def version = project.getProperties().get("version")
     if (version == null || "unspecified".equalsIgnoreCase(version)) {
         // 默认版本号；正式发布时由 CI 通过 -Pversion=<tag> 覆盖
-        version = "4.1.0"
+        version = "5.9.0"
     }
     // 分身里的 UI 试验包：只补演示数据，其余构建与正式包一致
     def uiDemo = project.hasProperty("uiDemo") || project.hasProperty("uiPreview")
@@ -33,6 +33,10 @@ android {
     def gitCommitHash = gitOutput(['rev-parse', '--short', 'HEAD']) ?: "unknown"
     def gitBranchName = gitOutput(['rev-parse', '--abbrev-ref', 'HEAD']) ?: "unknown"
     def buildTime = new Date().format("yyyy-MM-dd HH:mm:ss", TimeZone.getTimeZone("Asia/Shanghai"))
+    // 唯一信源指纹：官方 release 由 release.sh 传入 medusa-<version>-<commit>；
+    // 本地构建回退到版本+commit，便于在 system_status/handoff 里核对来源。
+    def medusaFingerprint = project.getProperties().get("medusaFingerprint")
+            ?: "medusa-${version}-${gitCommitHash}"
 
     compileSdk 37
     namespace 'io.github.aw1y2z.sesame'
@@ -41,11 +45,12 @@ android {
         minSdk 26
         //noinspection ExpiredTargetSdkVersion
         targetSdk 34
-        versionCode uiDemo ? 41045 : 41044
+        versionCode uiDemo ? 59001 : 59000
         versionName version
 
         buildConfigField "boolean", "UI_DEMO", uiDemo ? "true" : "false"
         buildConfigField "boolean", "UI_PREVIEW", uiPreview ? "true" : "false"
+        buildConfigField "String", "MEDUSA_FINGERPRINT", "\"${medusaFingerprint}\""
         manifestPlaceholders = [appLabel: uiPreview ? "美杜莎·UI试验" : "@string/app_name"]
 
         buildConfigField "String", "GIT_COMMIT_HASH", "\"${gitCommitHash}\""

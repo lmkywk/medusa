@@ -43,7 +43,7 @@ export NPATCH_JAR=/path/to/npatch-1.0.9.jar
 
 ```bash
 ./gradlew :app:testNormalDebugUnitTest
-./gradlew :app:assembleNormalRelease -Pversion=4.1.22
+./gradlew :app:assembleNormalRelease -Pversion=5.9.0
 ```
 
 Outputs are under `app/build/outputs/apk/normal/release/`.
@@ -55,7 +55,7 @@ delivery). It expects a host APK and a BKS keystore configured locally.
 The patched host is **your** artifact; do not redistribute it.
 
 ```bash
-bash tools/release.sh 4.1.22 --skip-tests
+bash tools/release.sh 5.9.0 --skip-tests
 ```
 
 ## Install / rollback

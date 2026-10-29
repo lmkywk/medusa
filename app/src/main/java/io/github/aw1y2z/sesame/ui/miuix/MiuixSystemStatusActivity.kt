@@ -215,6 +215,7 @@ private fun AccountSection(report: JSONObject) {
     val login = account?.optBoolean("login", false) == true
     val host = process?.optString("hostVersion", "").orEmpty().ifBlank { "—" }
     val module = process?.optString("moduleVersion", "").orEmpty().ifBlank { "—" }
+    val fingerprint = process?.optString("fingerprint", "").orEmpty().ifBlank { "—" }
     val hook = process?.optBoolean("hookReady", false) == true
     val pid = process?.optInt("pid", 0) ?: 0
     val uptime = process?.optLong("uptimeMs", 0L) ?: 0L
@@ -231,6 +232,11 @@ private fun AccountSection(report: JSONObject) {
             title = "宿主 / 模块",
             value = host,
             detail = "模块 $module"
+        )
+        StatusRow(
+            title = "版本指纹",
+            value = fingerprint,
+            detail = "仅以官方仓库 release 为准"
         )
         StatusRow(
             title = "Hook",

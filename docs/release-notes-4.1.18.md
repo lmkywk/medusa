@@ -39,6 +39,6 @@
 ## Test baseline
 
 - Host: Alipay 10.8.30.8000
-- Device: Samsung SM-S9480, Android 16
+- Device: Samsung Android 16 test device
 - Module: 4.1.18 (versionCode 41044)
 - Plan layout: 5 (24 plans)

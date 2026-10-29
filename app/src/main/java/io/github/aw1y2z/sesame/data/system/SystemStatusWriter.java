@@ -111,6 +111,7 @@ public final class SystemStatusWriter {
         process.put("uptimeMs", Math.max(0L, now - PROCESS_STARTED_AT));
         process.put("hostVersion", hostVersion());
         process.put("moduleVersion", BuildConfig.VERSION_NAME == null ? "" : BuildConfig.VERSION_NAME);
+        process.put("fingerprint", BuildConfig.MEDUSA_FINGERPRINT == null ? "" : BuildConfig.MEDUSA_FINGERPRINT);
         process.put("hookReady", hookReady());
         process.put("lastStartReason", "unknown");
         root.put("process", process);

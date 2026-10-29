@@ -46,7 +46,7 @@ result. `EMPTY` at the RPC metric layer is not the same as `SKIPPED` here.
 ## Example
 
 ```json
-{"ts":1793274272327,"at":"2026-10-29 19:44:32.327","uid":"2088...","runId":"manual-1793274256584@1793274256584","planId":"manual-1793274256584","target":"forest.park","domain":"forest","phase":"attempt","taskId":"forest::optionalplay::ANTFOREST_LEYUAN_DAILY_TASK/NLGJ_DJDRW_LEYUAN#4","title":"玩一玩挪了个箭(5/6)","mechanism":"GAME","endpoint":"AntForestVitalityTaskList","outcome":"DONE","durationMs":7759,"reason":"","moduleVersion":"4.1.13"}
+{"ts":1793274272327,"at":"2026-10-29 19:44:32.327","uid":"2088...","runId":"manual-1793274256584@1793274256584","planId":"manual-1793274256584","target":"forest.park","domain":"forest","phase":"attempt","taskId":"forest::optionalplay::ANTFOREST_LEYUAN_DAILY_TASK/NLGJ_DJDRW_LEYUAN#4","title":"玩一玩挪了个箭(5/6)","mechanism":"GAME","endpoint":"AntForestVitalityTaskList","outcome":"DONE","durationMs":7759,"reason":"","moduleVersion":"5.9.0"}
 ```
 
 ## Aggregation for an agent
@@ -61,3 +61,7 @@ result. `EMPTY` at the RPC metric layer is not the same as `SKIPPED` here.
 
 Do not upload `uid`, raw task titles from private lists, or raw logs. Use
 counts and redacted ids in issues. Keep the file local.
+
+The per-event stream intentionally does not include a build fingerprint.
+The official build fingerprint is in `system_status.json` (`process.fingerprint`)
+and `ai/handoff-<date>.json` (`fingerprint`); compare it with `PROVENANCE.md`.
