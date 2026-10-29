@@ -20,7 +20,7 @@ requiring the original author to ship new versions.
 
 ## 1. Baseline and source of truth
 
-- Baseline: module `4.1.13`, plan `layoutVersion=5`, host tested with
+- Baseline: module `4.1.18`, plan `layoutVersion=5`, host tested with
   Alipay `10.8.30.8000` on Samsung `SM-S9480`.
 - A release tag is the source of truth. Local changes are an overlay, not a
   new upstream. If a local fix is useful to others, propose a PR.
@@ -151,8 +151,12 @@ This is the "trusted help" input for the community/agent maintainers.
 - Farm food storage cap limits claims; auto-feed is bounded (4 friends,
   12 scans, 60s per round).
 - The 02:00 nightly batch (15 leaves) is the first full-batch test.
-- The app's AI summary still reads RPC/ledger/plan aggregates; TaskRunEvent
-  is available to the agent but is not yet the AI summary input.
+- `TaskRunEvent` now feeds `ai/handoff-<date>.json` and the in-app AI summary;
+  the handoff is the primary input for the development AI. The in-app summary
+  still also contains RPC/ledger/plan aggregates for context.
+- The handoff groups anomalies by problem class (e.g. member missing
+  taskConfigId = 192 events / 50 tasks) and adds plan/ledger next actions,
+  so it stays within ~500–1200 tokens.
 
 ## 12. Agent output template
 

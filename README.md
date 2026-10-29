@@ -15,7 +15,7 @@ build/patch it locally, and sign it with your own key. See `BUILDING.md`.
 
 ## Current baseline
 
-- Module version: `4.1.13`
+- Module version: `4.1.18`
 - Plan layout: `layoutVersion=5` (24 plans; 15 nightly batch items)
 - Tested host: Alipay `10.8.30.8000` on Samsung `SM-S9480` (Android 16)
 - This is a tested baseline, not a guarantee for other host versions.
@@ -27,11 +27,15 @@ central maintainer. The repository provides:
 
 - stable source and reproducible build instructions;
 - a machine-readable leaf-task event stream (`log/tasks.<date>.jsonl`);
+- a deterministic **AI handoff packet** (`ai/handoff-<date>.json`)
+  that gives the development AI problem classes, affected plans, ledger
+  claimables, and next probes in ~500–1200 tokens;
 - a maintenance manual that tells an agent how to diagnose, patch, test, and
   roll back safely;
 - a contract for RPC endpoints, task capabilities, and failure signatures.
 
 Read `docs/AI-MAINTENANCE-MANUAL.md` first if you are an agent.
+Read `docs/AI-HANDOFF.md` for the local-AI → development-AI handoff.
 Read `docs/TASK-RUN-EVENT.md` for the event schema.
 
 ## Layout

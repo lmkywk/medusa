@@ -41,7 +41,7 @@ android {
         minSdk 26
         //noinspection ExpiredTargetSdkVersion
         targetSdk 34
-        versionCode uiDemo ? 41035 : 41034
+        versionCode uiDemo ? 41045 : 41044
         versionName version
 
         buildConfigField "boolean", "UI_DEMO", uiDemo ? "true" : "false"

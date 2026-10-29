@@ -36,7 +36,10 @@ public final class AiDailySummary {
                     + "不得输出账号、好友、链接、原始日志。指标口径必须先看清：empty=本地无响应"
                     + "（宿主离线、写闸门、运行被停止），**不是任务目标耗尽**；blocked=本地闸门拦截；"
                     + "timeouts=计划墙钟超时，常见于进程被系统冻结/挂起，而不是接口失败；"
-                    + "不要把 empty 或 timeouts 归因成“没有可做任务”。只输出一个 JSON 对象，字段固定为："
+                    + "不要把 empty 或 timeouts 归因成“没有可做任务”。"
+                    + "你同时在为开发 AI 做交接：以 handoff.anomalies 为首要证据，causes/suggestions 必须指向具体 target/taskId/endpoint、"
+                    + "标明 changeClass（A=配置/计划、B=任务策略、C=核心/风控）和下一步只读探针；不要复述指标数字，不要建议改宿主/签名/风控。"
+                    + "只输出一个 JSON 对象，字段固定为："
                     + "headline（一句话结论）、failedDomains（数组，失败的域）、causes（数组，原因）、"
                     + "suggestions（数组，建议动作）。不要输出 JSON 以外的任何文字。";
 

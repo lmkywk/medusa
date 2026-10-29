@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import io.github.aw1y2z.sesame.data.AppConfig
+import io.github.aw1y2z.sesame.data.ai.AgentHandoff
 import io.github.aw1y2z.sesame.data.ai.AiDailySummary
 import io.github.aw1y2z.sesame.data.ai.AiRollup
 import io.github.aw1y2z.sesame.data.ai.AiUsage
@@ -344,6 +345,44 @@ private fun AiContent(activity: MiuixAiActivity) {
                     title = "未知任务样本",
                     summary = "本地已记录 ${UnknownTaskSamples.totalCount()} 条；只在手机里，不会自动上传",
                     onClick = { summaryText = unknownPreview() }
+                )
+            }
+
+            SmallTitle(text = "维护交接包（给开发 AI）")
+            CardColumn {
+                ArrowPreference(
+                    title = "生成维护交接包",
+                    summary = "读取叶子事件/计划/账本，输出压缩 JSON + Markdown；不调用模型",
+                    onClick = {
+                        if (busy) return@ArrowPreference
+                        busy = true
+                        Thread {
+                            val packet = AgentHandoff.build(null, TaskLedgerStore.today())
+                            summaryText = AgentHandoff.buildText(packet)
+                            busy = false
+                            ToastUtil.show(context, "已生成：ai/handoff-${packet.optString("day")}.json")
+                        }.start()
+                    }
+                )
+                ArrowPreference(
+                    title = "复制交接包 JSON",
+                    summary = "粘贴给开发 AI；不含账号、runId、原始日志",
+                    onClick = {
+                        if (busy) return@ArrowPreference
+                        busy = true
+                        Thread {
+                            val packet = AgentHandoff.build(null, TaskLedgerStore.today())
+                            activity.runOnUiThread {
+                                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                                        as? android.content.ClipboardManager
+                                clipboard?.setPrimaryClip(
+                                    android.content.ClipData.newPlainText("medusa-handoff", packet.toString())
+                                )
+                                ToastUtil.show(context, "交接包已复制（约 ${packet.optInt("tokenEstimate")} tokens）")
+                                busy = false
+                            }
+                        }.start()
+                    }
                 )
             }
 

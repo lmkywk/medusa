@@ -35,6 +35,21 @@ public final class AiDigest {
             digest.put("plans", planSummary(userId, day));
             digest.put("ledger", ledgerSummary(userId, day));
             digest.put("manualQueue", manualQueueCount(userId, day));
+            // 给开发 AI 的压缩交接包：叶子异常 + 下一步探针；完整包另存 ai/handoff-<day>.json。
+            JSONObject packet = AgentHandoff.build(userId, day);
+            JSONObject handoff = new JSONObject();
+            handoff.put("schemaVersion", packet.optInt("schemaVersion"));
+            handoff.put("summary", packet.optJSONObject("summary"));
+            JSONArray top = new JSONArray();
+            JSONArray anomalies = packet.optJSONArray("anomalies");
+            for (int i = 0; anomalies != null && i < anomalies.length() && i < 5; i++) {
+                top.put(anomalies.opt(i));
+            }
+            handoff.put("anomalies", top);
+            handoff.put("nextActions", packet.optJSONArray("nextActions"));
+            handoff.put("plans", packet.optJSONArray("plans"));
+            handoff.put("tokenEstimate", packet.optInt("tokenEstimate"));
+            digest.put("handoff", handoff);
         } catch (Throwable t) {
             Log.err(TAG, "构造今日摘要失败", t);
         }
