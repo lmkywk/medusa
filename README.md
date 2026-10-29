@@ -15,10 +15,14 @@ build/patch it locally, and sign it with your own key. See `BUILDING.md`.
 
 ## Current baseline
 
-- Module version: `4.1.18`
+- Module version: `4.1.22`
 - Plan layout: `layoutVersion=5` (24 plans; 15 nightly batch items)
 - Tested host: Alipay `10.8.30.8000` on Samsung `SM-S9480` (Android 16)
+- Status: **early-access test baseline**. Targeted flows (fish chain,
+  claim reconciliation, ledger refresh, `未探明` status) were verified on
+  2026-10-29; the full 02:00 batch on this exact build is still pending.
 - This is a tested baseline, not a guarantee for other host versions.
+  See `docs/release-notes-4.1.22.md` for known limitations.
 
 ## Why this repository exists
 

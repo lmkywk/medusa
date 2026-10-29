@@ -20,7 +20,7 @@ requiring the original author to ship new versions.
 
 ## 1. Baseline and source of truth
 
-- Baseline: module `4.1.18`, plan `layoutVersion=5`, host tested with
+- Baseline: module `4.1.22`, plan `layoutVersion=5`, host tested with
   Alipay `10.8.30.8000` on Samsung `SM-S9480`.
 - A release tag is the source of truth. Local changes are an overlay, not a
   new upstream. If a local fix is useful to others, propose a PR.
@@ -137,8 +137,10 @@ Proposed change class (A/B/C):
 
 This is the "trusted help" input for the community/agent maintainers.
 
-## 11. Known issues at 4.1.13
+## 11. Known issues at 4.1.22
 
+- **Early-access build**: targeted flows were verified on 2026-10-29, but the
+  full 02:00 nightly batch has not yet been re-run on this exact build.
 - Member no-task branch can remain `RUNNING` until the plan timeout; module
   exit needs a fix.
 - Member `applyTask` with `taskConfigId=0` is skipped and evented now.
@@ -149,9 +151,18 @@ This is the "trusted help" input for the community/agent maintainers.
 - Green finance is not activated for the test account; ancient tree
   conditions were not met.
 - Farm food storage cap limits claims; auto-feed is bounded (4 friends,
-  12 scans, 60s per round).
-- The 02:00 nightly batch (15 leaves) is the first full-batch test.
-- `TaskRunEvent` now feeds `ai/handoff-<date>.json` and the in-app AI summary;
+  12 scans, 60s per round). On 4.1.22, 13 farm rewards remained
+  `CLAIMABLE` because storage was 1759/1800g and no scanned friend had a
+  hungry chicken.
+- Six known task lists are not yet in the task ledger: `AntForestHuntTaskList`
+  (forest hunt), `AntMemberTaskList` / `MemberCreditSesameTaskList` /
+  `AntMemberAdTaskList` / `GoldTicketTaskList` / `WelfareFundTaskList`
+  (member), and `AntStallTaskList` (stall). Their tasks can run but do not
+  appear in the inventory table.
+- `report.json` `newTasks` / `removedTasks` compare today against yesterday,
+  not against the previous refresh.
+- The 02:00 nightly batch (15 leaves) remains the full-batch test.
+- `TaskRunEvent` feeds `ai/handoff-<date>.json` and the in-app AI summary;
   the handoff is the primary input for the development AI. The in-app summary
   still also contains RPC/ledger/plan aggregates for context.
 - The handoff groups anomalies by problem class (e.g. member missing

@@ -7,7 +7,7 @@ public enum LedgerStatus {
     CLAIMABLE("已完成待领"),
     CLAIMED("已领"),
     MANUAL("需手动"),
-    SKIPPED("已跳过");
+    SKIPPED("未探明");
 
     public final String label;
 

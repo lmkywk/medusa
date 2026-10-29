@@ -866,7 +866,7 @@ private fun DomainContent(
         val pending = summary.optInt("pending", 0)
         val manual = summary.optInt("manual", 0)
         val blacklisted = summary.optInt("blacklisted", 0)
-        return "待处理 $pending · 需手动 $manual" + if (blacklisted > 0) " · 已跳过 $blacklisted" else ""
+        return "待处理 $pending · 需手动 $manual" + if (blacklisted > 0) " · 未探明 $blacklisted" else ""
     }
 
     fun taskStatus(summary: org.json.JSONObject?, switchOn: Boolean): Pair<String, Color> {

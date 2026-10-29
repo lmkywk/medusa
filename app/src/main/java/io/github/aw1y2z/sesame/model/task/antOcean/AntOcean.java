@@ -1795,29 +1795,36 @@ public class AntOcean extends ModelTask {
         }
     }
 
-    /** 3.9.0 一次性迁移：把时间型摸鱼任务移出黑名单，改为等待后尝试。 */
+    /**
+     * 4.1.19 一次性迁移：把可由「等待上报」或「真实点赞」完成的摸鱼任务移出旧黑名单。
+     * 旧实现用 {@code optString != null} 判断标记，缺省值是空串，导致迁移从没跑过。
+     */
+    private static final String[] FISH_BLACKLIST_410_REMOVED = {
+            "去看最新动物科普", "去看看海洋保护项目", "逛一逛森林寻宝", "去玩一玩诗意绿洲",
+            "赠送每日摸鱼次数", "去看海洋里的神奇生物", "去点赞你的心动小鱼"
+    };
+
     private void migrateFishBlacklist() {
         try {
             RuntimeInfo info = RuntimeInfo.getInstance();
-            if (info.getString("ocean.fishBlacklist390") != null) {
+            if (!info.getString("ocean.fishBlacklist410").isEmpty()) {
                 return;
             }
             Set<String> list = AntOceanFishBlackList.getValue();
             if (list == null) {
-                info.put("ocean.fishBlacklist390", true);
+                info.put("ocean.fishBlacklist410", true);
                 return;
             }
-            boolean changed = list.remove("去看最新动物科普");
-            changed |= list.remove("去看看海洋保护项目");
-            changed |= list.remove("逛一逛森林寻宝");
-            changed |= list.remove("去玩一玩诗意绿洲");
-            changed |= list.remove("赠送每日摸鱼次数");
+            boolean changed = false;
+            for (String title : FISH_BLACKLIST_410_REMOVED) {
+                changed |= list.remove(title);
+            }
             if (changed) {
                 AntOceanFishBlackList.setObjectValue(list);
                 ConfigV2.save(UserIdMap.getCurrentUid(), true);
-                Log.record("摸鱼任务⏭️已移出5个时间型黑名单，改为等待后尝试");
+                Log.record("摸鱼任务⏭️已移出时间型/点赞型黑名单，改为自动执行");
             }
-            info.put("ocean.fishBlacklist390", true);
+            info.put("ocean.fishBlacklist410", true);
         } catch (Throwable t) {
             Log.err(TAG, "migrateFishBlacklist err:", t);
         }
@@ -2066,6 +2073,18 @@ public class AntOcean extends ModelTask {
                         }
                         continue;
                     }
+                    // 心动小鱼：先真实点赞一条可评价的鱼，再上报完成；失败才转手动
+                    if ("AIFISH_DIANZAN".equals(taskType)) {
+                        if (antfishAppraiseAndFinish(taskTitle, taskType, awardCount)) {
+                            continue;
+                        }
+                        if (!Status.hasFlagToday("ocean::fishManual::" + taskType)) {
+                            Status.flagToday("ocean::fishManual::" + taskType);
+                            OceanTaskLedger.recordFailure(UserIdMap.getCurrentUid(), "ANTAIFISH", taskType, "REAL_ACTION");
+                            Log.other("摸鱼任务⏭️点赞未完成[" + taskTitle + "]，转手动");
+                        }
+                        continue;
+                    }
                     if (kind == TaskCapability.Kind.REAL_ACTION || kind == TaskCapability.Kind.UNKNOWN) {
                         // 手动直达：2.0–3.8 对 TODO 一律尝试上报；现在自动计划保持保守，
                         // 只有用户手动执行时按旧版语义每任务类型每天尝试一次，做不了的仍由 TaskAttemptPolicy 拉黑。
@@ -2108,6 +2127,52 @@ public class AntOcean extends ModelTask {
         } catch (Throwable t) {
             Log.err(TAG, "antfishHandleTasks err:", t);
         }
+    }
+
+    /**
+     * 心动小鱼：查询可评价鱼 → 真实点赞一条 → 上报 AIFISH_DIANZAN。
+     * 点赞本身也有能量奖励；任务完成以任务列表探针为准。
+     */
+    private boolean antfishAppraiseAndFinish(String taskTitle, String taskType, int awardCount) {
+        try {
+            JSONObject jo = new JSONObject(AntOceanRpcCall.antfishNeedAppraiseFishList());
+            if (!MessageUtil.checkResultCode(TAG, jo)) {
+                return false;
+            }
+            JSONArray fishList = jo.optJSONArray("fishList");
+            if (fishList == null || fishList.length() == 0) {
+                Log.other("摸鱼任务⏭️暂无可点赞小鱼[" + taskTitle + "]");
+                return false;
+            }
+            for (int i = 0; i < fishList.length(); i++) {
+                JSONObject fish = fishList.optJSONObject(i);
+                if (fish == null) continue;
+                JSONObject appraiseVO = fish.optJSONObject("appraiseVO");
+                if (appraiseVO == null || !appraiseVO.optBoolean("canAppraise", false)) continue;
+                String imageId = fish.optString("imageId", "");
+                String seasonId = fish.optString("seasonId", "");
+                String targetUserId = appraiseVO.optString("receiveAppraiseUserId", "");
+                if (imageId.isEmpty() || seasonId.isEmpty() || targetUserId.isEmpty()) continue;
+                String nickName = fish.optString("nickName", targetUserId);
+                JSONObject likeJo = new JSONObject(AntOceanRpcCall.antfishAppraiseFish(
+                        imageId, seasonId, targetUserId, true));
+                if (!MessageUtil.checkResultCode(TAG, likeJo)) {
+                    Log.other("摸鱼任务⚠️点赞失败[" + nickName + "]，尝试下一条");
+                    continue;
+                }
+                Log.other("摸鱼任务👍已点赞[" + nickName + "]");
+                if (antfishFinishTask(taskTitle, taskType, 0L)) {
+                    if (antfishReceiveTaskAward(taskType)) {
+                        Log.other("摸鱼任务🎖️领取[" + taskTitle + "]获得摸鱼次数*" + awardCount);
+                    }
+                    return true;
+                }
+                return false;
+            }
+        } catch (Throwable t) {
+            Log.err(TAG, "antfishAppraiseAndFinish err:", t);
+        }
+        return false;
     }
 
     /**

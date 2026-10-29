@@ -1,6 +1,7 @@
 package io.github.aw1y2z.sesame.model.task.antOcean;
 
 import org.json.JSONArray;
+import org.json.JSONObject;
 
 import io.github.aw1y2z.sesame.hook.ApplicationHook;
 import io.github.aw1y2z.sesame.util.RandomUtil;
@@ -263,6 +264,31 @@ public class AntOceanRpcCall {
             "[{\"ignoreLimit\":false,\"requestType\":\"RPC\",\"sceneCode\":\"ANTAIFISH\",\"source\":\"ANTAIFISH\",\"taskType\":\"" + taskType + "\",\"uniqueId\":\"" + getAntfishUniqueId() + "\"}]");
     }
     
+    /**
+     * 可为“心动小鱼”点赞的鱼列表。
+     */
+    public static String antfishNeedAppraiseFishList() {
+        return ApplicationHook.requestString("alipay.antaifish.h5.queryNeedAppraiseFishList",
+                "[{\"source\":\"dianzanfish\",\"uniqueId\":\"" + RandomUtil.getRandomString(16) + "\"}]");
+    }
+
+    /**
+     * 点赞/点踩一条鱼：真实动作，用于完成 AIFISH_DIANZAN，不做伪申报。
+     */
+    public static String antfishAppraiseFish(String imageId, String seasonId, String targetUserId, boolean like) {
+        JSONObject req = new JSONObject();
+        try {
+            req.put("appraiseType", like ? "LIKE" : "DISLIKE");
+            req.put("imageId", imageId);
+            req.put("seasonId", seasonId);
+            req.put("source", "dianzanfish");
+            req.put("targetUserId", targetUserId);
+            req.put("uniqueId", System.currentTimeMillis() + "_" + RandomUtil.getRandomString(8));
+        } catch (Exception ignored) {
+        }
+        return ApplicationHook.requestString("alipay.antaifish.h5.fishAppraise", "[" + req + "]");
+    }
+
     /**
      * 执行摸鱼（使用摸鱼次数）
      */

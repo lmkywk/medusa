@@ -84,7 +84,7 @@ private val taskFilters = listOf(
     TaskFilter("in_progress", "进行中"),
     TaskFilter("manual", "需手动"),
     TaskFilter("claimed", "已领"),
-    TaskFilter("skipped", "已跳过")
+    TaskFilter("skipped", "未探明")
 )
 
 @Composable

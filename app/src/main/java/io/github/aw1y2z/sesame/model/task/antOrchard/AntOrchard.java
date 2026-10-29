@@ -405,14 +405,16 @@ public class AntOrchard extends ModelTask {
                     }
                     JSONObject bizInfo = new JSONObject(taskBaseInfo.optString("bizInfo", "{}"));
                     String taskName = bizInfo.optString("title");
-                    // 黑名单任务跳过（含预置小游戏种子与自动拉黑项）
-                    if (OrchardChouChouLeTaskList.getValue().contains(taskName)) {
-                        continue;
-                    }
                     String taskStatus = taskBaseInfo.optString("taskStatus");
                     String taskType = taskBaseInfo.optString("taskType");
                     String taskSceneCode = taskBaseInfo.optString("sceneCode");
                     if (!PlanContext.allowsTask("orchard", taskType, taskName, 0, 0, taskSceneCode)) {
+                        continue;
+                    }
+                    // 黑名单只拦“继续做”，不拦“已完成领奖”。否则黑名单里的 FINISHED
+                    // 任务永远领不到（例如“攒5000支金豆得1次机会”）。
+                    if (!"FINISHED".equals(taskStatus)
+                            && OrchardChouChouLeTaskList.getValue().contains(taskName)) {
                         continue;
                     }
                     JSONObject taskRights = taskInfo.optJSONObject("taskRights");
@@ -441,6 +443,9 @@ public class AntOrchard extends ModelTask {
                             }
                         }
                     } else if ("TODO".equals(taskStatus)) {
+                        if (OrchardChouChouLeTaskList.getValue().contains(taskName)) {
+                            continue;
+                        }
                         // 一次补齐：同一轮内按剩余次数连做，打满即止（与庄园抽抽乐同一形态）
                         int remain = rightsTimesLimit > 0 ? rightsTimesLimit - rightsTimes : 1;
                         if (remain <= 0) {
@@ -2280,6 +2285,34 @@ public class AntOrchard extends ModelTask {
             if (childTasks == null) {
                 Log.record("警告：第 " + currentRound + " 轮无子任务列表");
                 return;
+            }
+
+            // 父轮次仍可能是 TODO（还差别的子任务），但部分子任务已经 FINISHED。
+            // 只处理 TODO 会让这些已完成奖励永远挂在列表里，必须先把 FINISHED 子任务领掉。
+            for (int i = 0; i < childTasks.length(); i++) {
+                JSONObject child = childTasks.optJSONObject(i);
+                if (child == null || !"FINISHED".equals(child.optString("taskStatus"))) {
+                    continue;
+                }
+                String childTaskId = child.optString("taskId", "");
+                if (childTaskId.isEmpty()) {
+                    continue;
+                }
+                String childScene = child.optString("sceneCode", "ORCHARD_LIMITED_TIME_CHALLENGE");
+                JSONObject display = child.optJSONObject("taskDisplayConfig");
+                String childTitle = display == null ? childTaskId : display.optString("title", childTaskId);
+                try {
+                    JSONObject awardJo = new JSONObject(
+                            AntOrchardRpcCall.receiveTaskAward(childScene, childTaskId));
+                    if (MessageUtil.checkResultCode(TAG, awardJo)) {
+                        Log.farm("限时任务🎁[" + childTitle + "]奖励已领取");
+                    } else {
+                        Log.record("限时任务子任务领奖失败[" + childTaskId + "]: "
+                                + awardJo.optString("desc", "未知错误"));
+                    }
+                } catch (Throwable t) {
+                    Log.err(TAG, "limitedTimeChallenge child award err:", t);
+                }
             }
 
             Log.record("开始处理第 " + currentRound + " 轮的 " + childTasks.length() + " 个子任务");

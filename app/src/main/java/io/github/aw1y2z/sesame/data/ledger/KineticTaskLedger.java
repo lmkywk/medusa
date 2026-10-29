@@ -67,6 +67,10 @@ public final class KineticTaskLedger {
                 }
                 tasks.add(parse(raw, existing.remove(taskId(raw)), now));
             }
+            // 签到不在 taskList 里，必须先从“已消失”集合移除，否则同一 ID 会同时留下
+            // 一条新签到和一条 SERVER_GONE 的旧签到（金豆账本同位置已这样处理）。
+            LedgerTask sign = signTask(userId, now);
+            existing.remove("sign");
             for (LedgerTask old : existing.values()) {
                 old.status = LedgerStatus.SKIPPED;
                 old.manualReason = "SERVER_GONE";
@@ -74,7 +78,6 @@ public final class KineticTaskLedger {
                 old.updatedAt = now;
                 tasks.add(old);
             }
-            LedgerTask sign = signTask(userId, now);
             if (sign != null) {
                 tasks.add(0, sign);
             }
