@@ -15,7 +15,7 @@ public final class PlanStore {
 
     public static final int SCHEMA_VERSION = 2;
     /** 默认编排布局版本；升级后老用户若从未改过默认计划，自动换成新的细粒度排布。 */
-    private static final int DEFAULT_LAYOUT_VERSION = 5;
+    private static final int DEFAULT_LAYOUT_VERSION = 8;
 
     private static final String TAG = "PlanStore";
     private static final Object LOCK = new Object();

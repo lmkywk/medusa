@@ -3,6 +3,7 @@ package io.github.aw1y2z.sesame.data;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 
+import io.github.aw1y2z.sesame.BuildConfig;
 import io.github.aw1y2z.sesame.data.task.ModelTask;
 import io.github.aw1y2z.sesame.entity.UserEntity;
 import io.github.aw1y2z.sesame.util.*;
@@ -33,6 +34,8 @@ public class ConfigV2 {
     private Integer schemaVersion = SCHEMA_VERSION;
     /** 默认配置预设版本；0/缺失时应用一次“几乎全开（安全+资源支出）”预设。 */
     private Integer presetVersion = 0;
+    /** 新装默认档：0=正常预设（作者包）；1=任务/域开关全关（公开包新装）。 */
+    private Integer defaultProfile = 0;
 
     @JsonIgnore
     private boolean init;
@@ -222,6 +225,7 @@ public class ConfigV2 {
         Log.i(TAG, "开始加载配置");
         String userName = "";
         File configV2File = null;
+        boolean freshConfig = false;
         try {
             if (StringUtil.isEmpty(userId)) {
                 configV2File = FileUtil.getDefaultConfigV2File();
@@ -236,6 +240,7 @@ public class ConfigV2 {
                 }
             }
             Log.record("加载配置: " + userName);
+            freshConfig = configV2File != null && !configV2File.exists();
             if (configV2File.exists()) {
                 String json = FileUtil.readFromFile(configV2File);
                 JsonUtil.copyMapper().readerForUpdating(INSTANCE).readValue(json);
@@ -273,8 +278,20 @@ public class ConfigV2 {
             }
         }
         clampAllFields();
-        if (INSTANCE.getPresetVersion() == null
-                || INSTANCE.getPresetVersion() < ConfigPreset.VERSION) {
+        boolean migrated = ConfigMigration.apply(INSTANCE);
+        if (migrated && configV2File != null && configV2File.exists()) {
+            try {
+                FileUtil.backupConfigV2WithRolling(userId);
+                FileUtil.write2File(INSTANCE.toSaveStr(), configV2File);
+                Log.record("配置⚙️已迁移好友浇水逻辑到 v" + ConfigMigration.WATER_LOGIC_VERSION);
+            } catch (Throwable t) {
+                Log.err(TAG, "好友浇水配置迁移落盘失败", t);
+            }
+        }
+        boolean allOffProfile = INSTANCE.getDefaultProfile() != null
+                && INSTANCE.getDefaultProfile() == 1;
+        if (!allOffProfile && (INSTANCE.getPresetVersion() == null
+                || INSTANCE.getPresetVersion() < ConfigPreset.VERSION)) {
             try {
                 ConfigPreset.apply(INSTANCE);
                 INSTANCE.setPresetVersion(ConfigPreset.VERSION);
@@ -286,6 +303,21 @@ public class ConfigV2 {
                         + "：安全/资源支出开关开启；支付/交易/捐赠/缺好友/缺数字保持关闭");
             } catch (Throwable t) {
                 Log.err(TAG, "应用默认配置预设失败", t);
+            }
+        }
+        if (BuildConfig.DEFAULT_ALL_OFF && freshConfig && configV2File != null) {
+            try {
+                // 先套安全边界（支付/交易/缺依赖项仍关闭），再把所有任务/域开关置为 false；
+                // 只对新装生效，老用户已有配置不会被重置。
+                ConfigPreset.apply(INSTANCE);
+                applyAllOffBooleans(INSTANCE);
+                INSTANCE.setDefaultProfile(1);
+                INSTANCE.setPresetVersion(ConfigPreset.VERSION);
+                FileUtil.backupConfigV2WithRolling(userId);
+                FileUtil.write2File(INSTANCE.toSaveStr(), configV2File);
+                Log.record("配置⚙️新装默认：任务/域开关全部关闭");
+            } catch (Throwable t) {
+                Log.err(TAG, "应用新装默认关闭失败", t);
             }
         }
         INSTANCE.setInit(true);
@@ -401,6 +433,23 @@ public class ConfigV2 {
             return parts.toString();
         }
         return String.valueOf(value);
+    }
+
+    /** 公开包新装：ConfigV2 内的任务/域布尔开关全部关闭；数值/选择项保留预设的安全值。 */
+    static void applyAllOffBooleans(ConfigV2 config) {
+        if (config == null) {
+            return;
+        }
+        for (ModelFields fields : config.getModelFieldsMap().values()) {
+            if (fields == null) {
+                continue;
+            }
+            for (ModelField<?> field : fields.values()) {
+                if (field != null && "BOOLEAN".equals(field.getType())) {
+                    field.setObjectValue(false);
+                }
+            }
+        }
     }
 
     /** 记录当前各字段的值快照，用于之后判断"本进程改过哪些字段" */

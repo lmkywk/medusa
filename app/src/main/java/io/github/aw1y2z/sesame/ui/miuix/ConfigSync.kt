@@ -58,6 +58,33 @@ object ConfigSync {
     }
 
     /**
+     * 显式“保存”按钮：不按 hasFieldChanges 提前返回。
+     * 开关/选项在点按后已经自动落盘，基线随之刷新；再点保存时 hasFieldChanges 为空，
+     * 旧入口会误报“没有需要保存的改动”。这里强制写一次并给出成功/失败反馈。
+     */
+    fun saveForced(context: Context, userId: String?): SaveResult {
+        if (!PermissionUtil.checkFilePermissions(context)) {
+            return SaveResult(SaveOutcome.NO_PERMISSION, "未授予「所有文件访问权限」")
+        }
+        if (!FileUtil.isMainDirectoryWritable()) {
+            return SaveResult(
+                SaveOutcome.NO_PERMISSION,
+                FileUtil.getLastWriteError() ?: "共享配置目录不可写"
+            )
+        }
+        return if (ConfigV2.save(userId, true)) {
+            ToastUtil.show(
+                context,
+                if (userId.isNullOrEmpty()) "已保存到「默认模板」" else "已保存"
+            )
+            notifyRestart(context, userId)
+            SaveResult(SaveOutcome.SUCCESS)
+        } else {
+            SaveResult(SaveOutcome.WRITE_FAILED, FileUtil.getLastWriteError())
+        }
+    }
+
+    /**
      * 开关/选择项变更后的静默落盘：不弹 Toast、不广播 restart。
      * 注入进程下一轮会重新读取配置；频繁广播会让宿主反复重载，反而让开关看起来“没生效”。
      */

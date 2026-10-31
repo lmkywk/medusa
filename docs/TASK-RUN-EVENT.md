@@ -5,7 +5,7 @@ input for a local maintenance agent.
 
 ## Location
 
-`<host media dir>/sesame-M/log/tasks.<yyyy-MM-dd>.jsonl`
+`<host media dir>/Medusa/log/tasks.<yyyy-MM-dd>.jsonl`（作者自用包为 `sesame-M/`）
 
 One JSON object per line, UTF-8, append-only. Retention: 7 days; size cap:
 16 MiB per day.

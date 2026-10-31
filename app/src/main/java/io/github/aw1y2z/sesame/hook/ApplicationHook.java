@@ -194,7 +194,9 @@ public class ApplicationHook extends XposedModule {
         log(4, TAG, "event=module_loaded api=" + getApiVersion()
                 + " framework=" + getFrameworkName() + " version=" + getFrameworkVersion());
         try {
-            // 读取与 App 共享的日志开关配置，使各分项开关在本进程真正生效
+            // 首次注入时创建 Medusa 自己的数据根目录（公开版会顺带迁移旧 sesame-M 配置）
+            FileUtil.ensureMainDirectory();
+            // 读取与 App 共享的日志开关配置，使各分项开关在进程真正生效
             AppConfig.load();
             // 模块已在 LSPosed 中启用：onModuleLoaded 被调用即代表已启用，
             // 直接标记为已激活（与是否打开 / hook 支付宝无关）
@@ -361,6 +363,9 @@ public class ApplicationHook extends XposedModule {
                                     Log.record("应用版本：" + alipayVersion.getVersionString());
                                     Log.record("模块版本：" + modelVersion);
                                     Log.record("开始执行");
+                                    // 时间账：每次进程装载记一条，账本据此数重启、拆死时间
+                                    io.github.aw1y2z.sesame.data.plan.ProcessBoots
+                                            .record(io.github.aw1y2z.sesame.util.idMap.UserIdMap.getCurrentUid());
                                     if (lastExecTime + 2000 > System.currentTimeMillis()) {
                                         Log.record("执行间隔较短，跳过执行");
                                         execDelayedHandler(checkInterval);

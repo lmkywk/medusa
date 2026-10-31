@@ -25,7 +25,10 @@ public class FileUtil {
     /** 账号目录名白名单：uid 由宿主给出，拼进路径前必须挡住「..」与路径分隔符 */
     private static final Pattern USER_ID_PATTERN = Pattern.compile("[0-9A-Za-z_-]+");
     //路径
-    public static final String CONFIG_DIRECTORY_NAME = "sesame-M";
+    public static final String CONFIG_DIRECTORY_NAME = BuildConfig.DATA_DIR_NAME;
+    /** 旧版/其他助手共用的目录名；公开版首次启动时从这里迁移配置类数据，旧目录不删。 */
+    public static final String LEGACY_CONFIG_DIRECTORY_NAME = "sesame-M";
+    private static final String MIGRATION_MARKER = ".migrated_from_sesame_m";
     public static final File MAIN_DIRECTORY_FILE = getMainDirectoryFile();
     public static final File CONFIG_DIRECTORY_FILE = getConfigDirectoryFile();
     public static final File LOG_DIRECTORY_FILE = getLogDirectoryFile();
@@ -250,6 +253,14 @@ public class FileUtil {
         return latestFile;
     }
     
+    /** 显式触发主目录初始化（首次打开模块或宿主注入时调用，Android 没有真正的安装时执行入口）。 */
+    public static void ensureMainDirectory() {
+        // 触碰静态字段即可；getMainDirectoryFile() 已包含创建与迁移
+        if (!MAIN_DIRECTORY_FILE.isDirectory()) {
+            MAIN_DIRECTORY_FILE.mkdirs();
+        }
+    }
+
     @SuppressWarnings("deprecation")
     private static File getMainDirectoryFile() {
         // UI 试验包读写自己的目录，绝不碰正式版那份配置、计划和账本
@@ -257,6 +268,9 @@ public class FileUtil {
         String storageDirStr = Environment.getExternalStorageDirectory() + File.separator + "Android" + File.separator + "media" + File.separator + packageDir;
         File storageDir = new File(storageDirStr);
         File mainDir = new File(storageDir, CONFIG_DIRECTORY_NAME);
+        if (!CONFIG_DIRECTORY_NAME.equals(LEGACY_CONFIG_DIRECTORY_NAME)) {
+            migrateLegacyDirectory(new File(storageDir, LEGACY_CONFIG_DIRECTORY_NAME), mainDir);
+        }
         if (mainDir.exists()) {
             if (mainDir.isFile()) {
                 mainDir.delete();
@@ -285,6 +299,94 @@ public class FileUtil {
         return mainDir;
     }
     
+    /**
+     * 公开版把数据根目录换成 Medusa。首次启动时把旧目录里除 log 外的配置/账本/统计/AI 复制过来，
+     * 旧目录保留不删，回滚或对比时仍可查；日志不迁（可能上百 MB）。
+     * <p>这里不能用项目自己的 Log/Toast：FileUtil 正在静态初始化，Log 也会反向依赖本类。
+     */
+    private static void migrateLegacyDirectory(File legacyDir, File targetDir) {
+        try {
+            if (legacyDir == null || !legacyDir.isDirectory() || legacyDir.equals(targetDir)) {
+                return;
+            }
+            File marker = new File(targetDir, MIGRATION_MARKER);
+            if (marker.exists()) {
+                return;
+            }
+            if (!targetDir.isDirectory() && !targetDir.mkdirs()) {
+                android.util.Log.w(TAG, "数据目录创建失败: " + targetDir.getAbsolutePath());
+                return;
+            }
+            boolean[] failed = new boolean[]{false};
+            int copied = copyMissing(legacyDir, targetDir, failed);
+            if (!failed[0]) {
+                writeMarker(marker);
+            }
+            android.util.Log.i(TAG, "数据目录迁移 " + legacyDir.getName() + " -> "
+                    + targetDir.getName() + "，复制 " + copied + " 个文件"
+                    + (failed[0] ? "（部分失败，下次重试）" : ""));
+        } catch (Throwable t) {
+            android.util.Log.w(TAG, "数据目录迁移失败", t);
+        }
+    }
+
+    private static int copyMissing(File source, File target, boolean[] failed) {
+        File[] children = source.listFiles();
+        if (children == null) {
+            return 0;
+        }
+        int copied = 0;
+        for (File child : children) {
+            String name = child.getName();
+            if ("log".equals(name) || name.startsWith(".tmp") || name.startsWith(".write_probe")) {
+                continue;
+            }
+            File dest = new File(target, name);
+            if (child.isDirectory()) {
+                if (!dest.isDirectory() && !dest.mkdirs()) {
+                    failed[0] = true;
+                    continue;
+                }
+                copied += copyMissing(child, dest, failed);
+            } else if (!dest.exists()) {
+                if (copyFileTo(child, dest)) {
+                    copied++;
+                } else {
+                    failed[0] = true;
+                }
+            }
+        }
+        return copied;
+    }
+
+    private static boolean copyFileTo(File source, File target) {
+        File tmp = new File(target.getParentFile(), target.getName() + ".tmp" + System.nanoTime());
+        try {
+            Files.copy(source.toPath(), tmp.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            if (tmp.renameTo(target)) {
+                return true;
+            }
+            Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            return true;
+        } catch (Throwable t) {
+            android.util.Log.w(TAG, "迁移文件失败: " + source.getName(), t);
+            return false;
+        } finally {
+            if (tmp.exists()) {
+                //noinspection ResultOfMethodCallIgnored
+                tmp.delete();
+            }
+        }
+    }
+
+    private static void writeMarker(File marker) {
+        try (FileOutputStream fos = new FileOutputStream(marker)) {
+            fos.write(String.valueOf(System.currentTimeMillis()).getBytes(StandardCharsets.UTF_8));
+        } catch (Throwable t) {
+            android.util.Log.w(TAG, "写入迁移标记失败", t);
+        }
+    }
+
     private static File getLogDirectoryFile() {
         File logDir = new File(MAIN_DIRECTORY_FILE, "log");
         if (logDir.exists()) {

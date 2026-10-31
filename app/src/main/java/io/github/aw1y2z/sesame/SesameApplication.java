@@ -19,6 +19,8 @@ public class SesameApplication extends Application implements XposedServiceHelpe
     @Override
     public void onCreate() {
         super.onCreate();
+        // 首次打开模块即创建自己的数据根目录（Android 没有安装完成就执行代码的入口）
+        io.github.aw1y2z.sesame.util.FileUtil.ensureMainDirectory();
         XposedServiceHelper.registerListener(this);
         // 4.0.0：数据 schema 迁移在模块进程后台跑，失败不影响启动；注入进程读到的旧字段都有默认值
         Thread migration = new Thread(() -> {

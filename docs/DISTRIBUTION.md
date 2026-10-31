@@ -7,11 +7,11 @@ Alipay host APK is never redistributed.
 
 Attach these assets to the official GitHub Release:
 
-- `Medusa-V5.9.0-module-arm64.apk`
-- `Medusa-V5.9.0-module-universal.apk`
+- `Medusa-V5.11.0-module-arm64.apk`
+- `Medusa-V5.11.0-module-universal.apk`
 - `SHA256SUMS.txt`
 
-Release tag: `v5.9.0`. The APK is signed with the project's release key; its
+Release tag: `v5.11.0`. The APK is signed with the project's release key; its
 certificate SHA-256 is recorded in `PROVENANCE.md`. The host APK and signing
 key are not in the release.
 
@@ -23,33 +23,35 @@ host, and verify the fingerprint before use.
 The module follows the standard Xposed/LSPosed layout:
 
 ```text
-app/src/main/resources/META-INF/xposed/module.prop
+app/module.prop.template                # generated to META-INF/xposed/module.prop
 app/src/main/resources/META-INF/xposed/scope.list
 app/src/main/resources/META-INF/xposed/java_init.list
 ```
 
-`module.prop` contains the fields scrapers and module managers read:
+Public `module.prop` contains the fields scrapers and module managers read:
 
 ```properties
 id=medusa
 name=Medusa
-version=5.9.0
-versionCode=59000
+version=5.11.0
+versionCode=60100
 author=Medusa Contributors
 description=Decentralized, agent-maintained assistant for Alipay daily tasks. Source-only; the Alipay host APK is not included.
-minApiVersion=102
-targetApiVersion=102
+minApiVersion=101
+targetApiVersion=101
 staticScope=true
 exceptionMode=protective
-autoHotReload=false
 ```
+
+The `--owner` build generates `minApiVersion=102`, `targetApiVersion=102`,
+and `autoHotReload=false`; it is not the public asset.
 
 Rules that keep repository/market scraping reliable:
 
 - keep `version` and `versionCode` in `module.prop` identical to the release
   tag and APK `versionName`/`versionCode`;
-- keep the release tag and asset names stable (`v5.9.0`,
-  `Medusa-V5.9.0-module-*.apk`);
+- keep the release tag and asset names stable (`v5.11.0`,
+  `Medusa-V5.11.0-module-*.apk`);
 - keep `scope.list` limited to `com.eg.android.AlipayGphone`;
 - keep `java_init.list` pointing to
   `io.github.aw1y2z.sesame.hook.ApplicationHook`;
@@ -60,19 +62,29 @@ Rules that keep repository/market scraping reliable:
   listing.
 
 For a module-market submission, use the signed module APK and the release
-notes from `docs/release-notes-5.9.0.md`. The host layer remains the user's
+notes from `docs/release-notes-5.11.0.md`. The host layer remains the user's
 responsibility.
+
+## Data directory and defaults
+
+- Public build: `Android/media/com.eg.android.AlipayGphone/Medusa`.
+  On first launch it copies config/ledger/plan/statistics/AI data from the old
+  `sesame-M` directory and keeps the old directory; logs are not migrated.
+- Author build: keeps `sesame-M` and the existing defaults.
+- New public installs/new accounts start with all task/domain switches off;
+  existing configs are not reset. Logs/notifications/permissions keep their
+  defaults.
 
 ## Versioning
 
-- Public release version: `5.9.0`
-- `versionCode`: `59000`
-- Tag: `v5.9.0`
-- Build fingerprint: `medusa-5.9.0-0fda2ce` (official build)
+- Public release version: `5.11.0`
+- `versionCode`: `60100`
+- Tag: `v5.11.0`
+- Build fingerprint: `medusa-5.11.0-<build-commit>` (official build)
 - Release certificate and APK hash: see `PROVENANCE.md`
 
 All public descriptions, APK metadata, release notes, and the in-app
-`system_status.json` must use `5.9.0`. Do not reuse an older version number
+`system_status.json` must use `5.11.0`. Do not reuse an older version number
 for a new binary.
 
 ## Privacy

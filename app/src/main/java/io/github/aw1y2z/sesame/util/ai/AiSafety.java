@@ -27,6 +27,14 @@ public final class AiSafety {
             "execute", "click", "auto_run", "autorun", "run_plan", "modify_plan", "enqueue"
     };
 
+    /**
+     * 否定句里的“执行/点击”不构成执行意图，例如“不执行领取”“不自动执行”“未执行”。
+     * 只抹掉紧跟在否定词后的动作词，正向的“请执行/自动执行”仍会命中关键词。
+     */
+    private static final Pattern NEGATED_EXECUTION = Pattern.compile(
+            "(不|未|没|没有|无需|禁止|不可|不能|无法|不要|不得|不再|不建议|不需要|不必|不应|不应该|不会|不打算|不准备)"
+                    + "(自动)?(执行|点击|运行|修改计划|改计划|修改队列|改队列)");
+
     private AiSafety() {
     }
 
@@ -80,7 +88,7 @@ public final class AiSafety {
     }
 
     private static boolean containsExecutableIntent(JSONObject json) {
-        String text = json.toString();
+        String text = NEGATED_EXECUTION.matcher(json.toString()).replaceAll("");
         for (String word : EXECUTABLE_WORDS) {
             if (text.contains(word)) {
                 return true;

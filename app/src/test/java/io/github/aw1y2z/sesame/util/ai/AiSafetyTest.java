@@ -56,6 +56,15 @@ public class AiSafetyTest {
     }
 
     @Test
+    public void acceptsNegatedExecutableIntent() {
+        AiSafety.Validation validation = AiSafety.validate(
+                "{\"headline\":\"不执行领取\",\"causes\":[\"不自动执行\",\"未执行\"],"
+                        + "\"suggestions\":[\"不建议执行\",\"仅只读复核\"]}");
+        assertTrue(validation.reason, validation.valid);
+        assertEquals("不执行领取", validation.json.optString("headline"));
+    }
+
+    @Test
     public void rejectsLongDigitsInReply() {
         AiSafety.Validation validation = AiSafety.validate("{\"headline\":\"账号2088000000000000异常\"}");
         assertFalse(validation.valid);

@@ -396,7 +396,7 @@ fun LogScreen(activity: MiuixLogViewerActivity, logType: LogType, initialQuery: 
                                 textAlign = TextAlign.Center
                             )
                             Text(
-                                text = "日志目录：Android/media/com.eg.android.AlipayGphone/sesame-M/log",
+                                text = "日志目录：${FileUtil.LOG_DIRECTORY_FILE.absolutePath}",
                                 fontSize = MedusaType.Secondary,
                                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                 textAlign = TextAlign.Center

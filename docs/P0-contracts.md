@@ -195,7 +195,7 @@ P0 只报告，不阻止任务；P1 才用 `MISSING` 生成 `BLOCKED_CAPABILITY`
 
 ### 3.3 `system_status.json`（P0 新增）
 
-- 路径：`/sdcard/Android/media/com.eg.android.AlipayGphone/sesame-M/system_status.json`
+- 路径：`/sdcard/Android/media/com.eg.android.AlipayGphone/Medusa/system_status.json`（作者自用包仍为 `sesame-M`）
 - 写者：注入进程（`SystemStatusWriter`）
 - 读者：模块 App 的“系统状态”页、诊断导出
 - 写入时机：进程启动、`sesame.status`（`detail=true`）、计划轮次结束后（节流 ≥ 30 秒）

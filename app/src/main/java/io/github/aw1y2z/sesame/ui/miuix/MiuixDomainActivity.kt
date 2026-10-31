@@ -103,6 +103,7 @@ import io.github.aw1y2z.sesame.data.plan.PlanHistory
 import io.github.aw1y2z.sesame.data.plan.PlanRuntime
 import io.github.aw1y2z.sesame.data.plan.PlanTargets
 import io.github.aw1y2z.sesame.util.RiskGuard
+import io.github.aw1y2z.sesame.util.Statistics
 import io.github.aw1y2z.sesame.util.ToastUtil
 import java.util.Calendar
 import java.util.Locale
@@ -405,11 +406,11 @@ private fun DomainContent(
         when (spec.key) {
             "forest" -> mapOf(
                 "forest.home" to listOf(PlanTargets.FOREST_COLLECT),
-                "forest.friends" to listOf(PlanTargets.FOREST_DAILY, PlanTargets.FOREST_EXTERNAL),
-                "forest.water" to listOf(PlanTargets.FOREST_DAILY, PlanTargets.FOREST_EXTERNAL),
+                "forest.friends" to listOf(
+                    PlanTargets.FOREST_DAILY, PlanTargets.FOREST_EXTERNAL, PlanTargets.FOREST_HUNT
+                ),
                 "forest.reward" to listOf(PlanTargets.FOREST_DAILY, PlanTargets.FOREST_EXTERNAL),
                 "forest.green" to listOf(PlanTargets.FOREST_DAILY, PlanTargets.FOREST_EXTERNAL),
-                "forest.hunt" to listOf(PlanTargets.FOREST_HUNT),
                 "forest.ip" to listOf(PlanTargets.FOREST_IP),
                 "forest.park" to listOf(PlanTargets.FOREST_DAILY, PlanTargets.FOREST_EXTERNAL),
                 "forest.patrol" to listOf(
@@ -569,6 +570,7 @@ private fun DomainContent(
                 putExtra(MiuixGroupFieldsActivity.EXTRA_GROUP_CODE, spec.group.name)
                 putExtra(MiuixGroupFieldsActivity.EXTRA_USER_ID, userId)
                 putExtra(MiuixGroupFieldsActivity.EXTRA_FIELD_CODES, fields.joinToString(",") { it.code })
+                putExtra(MiuixGroupFieldsActivity.EXTRA_CARD_ID, card.id)
                 putExtra(MiuixGroupFieldsActivity.EXTRA_CARD_TITLE, card.title)
             }
         )
@@ -870,7 +872,7 @@ private fun DomainContent(
     }
 
     fun taskStatus(summary: org.json.JSONObject?, switchOn: Boolean): Pair<String, Color> {
-        if (!switchOn) return "未运行" to Color(0xFFE57373)
+        if (!switchOn) return "已关闭" to Color(0xFFE57373)
         if (summary == null) return "未同步" to Color(0xFFE57373)
         val actionable = summary.optInt("claimable", 0) + summary.optInt("untouched", 0)
         val inProgress = summary.optInt("inProgress", 0)
@@ -1160,8 +1162,31 @@ private fun DomainContent(
                 "forest.home" -> forestStatus?.let { st ->
                     "今日收取 ${st.optInt("todayObtained", 0)}g · 当前 ${st.optInt("currentEnergy", 0)}g"
                 }
-                "forest.friends" -> forestStatus?.let { st ->
-                    "可偷 ${st.optInt("canCollectFriends", 0)} 人 · 今日收入 ${st.optInt("todayObtained", 0)}g"
+                "forest.friends" -> {
+                    val fields = assignments[card.id].orEmpty()
+                    fun bool(code: String) = fields.filterIsInstance<BooleanModelField>()
+                        .firstOrNull { it.code == code }?.value == true
+                    fun int(code: String) = fields.filterIsInstance<IntegerModelField>()
+                        .firstOrNull { it.code == code }?.value
+                    val parts = mutableListOf<String>()
+                    if (bool("waterFriendEnable")) {
+                        val limit = int("waterDailyLimit") ?: 200
+                        val mode = fields.filterIsInstance<ChoiceModelField>()
+                            .firstOrNull { it.code == "waterMode" }?.value ?: 0
+                        val used = Statistics.getData(Statistics.TimeType.DAY, Statistics.DataType.WATERED)
+                        parts.add((if (mode == 1) "浇水·指定" else "浇水·回浇") + " $used/${limit}g")
+                    } else {
+                        parts.add("浇水 关")
+                    }
+                    when {
+                        bool("partnerteamWater") -> parts.add("合种 ${int("partnerteamWaterNum") ?: 0}g")
+                        bool("loveteamWater") -> parts.add("真爱 ${int("loveteamWaterNum") ?: 0}g")
+                        else -> parts.add("合种 关")
+                    }
+                    parts.add(if (bool("ForestHunt")) "寻宝 开" else "寻宝 关")
+                    val common = CommonFriendStore.load(userId)
+                    if (common.ids.isNotEmpty()) parts.add("常用 ${common.ids.size} 人")
+                    parts.joinToString(" · ")
                 }
                 "forest.backpack" -> forestBackpack?.optJSONArray("items")?.let { items ->
                     if (items.length() == 0) {
@@ -1512,7 +1537,7 @@ private fun DomainContent(
                 "sports.walk" -> {
                     val steps = kineticStatus?.optInt("steps", -1) ?: -1
                     when {
-                        !anySwitchOn(card) -> "未运行" to Color(0xFFE57373)
+                        !anySwitchOn(card) -> "已关闭" to Color(0xFFE57373)
                         cardRunning(card) -> "运行中" to Color(0xFFF4C66F)
                         kineticStatus == null || steps < 0 -> "未同步" to MedusaColors.Muted
                         kineticStatus?.optBoolean("walkSigned", false) == true ->
@@ -1584,7 +1609,7 @@ private fun DomainContent(
                         .filterIsInstance<IntegerModelField>()
                         .firstOrNull { it.code == "ipExchangeCount" }?.value ?: 1
                     when {
-                        !switchOn -> "未运行" to Color(0xFFE57373)
+                        !switchOn -> "已关闭" to Color(0xFFE57373)
                         forestIp == null || forestIp.optString("skuId").isEmpty() ->
                             "未发现" to Color(0xFFE57373)
                         forestIp.optInt("todayExchanged", 0) >= target ->
@@ -1600,7 +1625,7 @@ private fun DomainContent(
                 "farm.task" -> taskStatus(farmSummary, switchOn)
                 "farm.draw" -> taskStatus(farmDrawSummary, switchOn)
                 "farm.daily" -> when {
-                    !anySwitchOn(card) -> "未运行" to Color(0xFFE57373)
+                    !anySwitchOn(card) -> "已关闭" to Color(0xFFE57373)
                     cardRunning(card) -> "运行中" to Color(0xFFF4C66F)
                     farmStatus == null -> "未同步" to Color(0xFFE57373)
                     (farmStatus?.optInt("foodStock", 0) ?: 0) <= 0 -> "缺饲料" to Color(0xFFE57373)
@@ -1626,18 +1651,18 @@ private fun DomainContent(
                     }
                 }
                 "farm.competition" -> when {
-                    !anySwitchOn(card) -> "未运行" to Color(0xFFE57373)
+                    !anySwitchOn(card) -> "已关闭" to Color(0xFFE57373)
                     cardRunning(card) -> "运行中" to Color(0xFFF4C66F)
                     competitionStatus == null -> "未同步" to Color(0xFFE57373)
                     cardRanToday(card) -> "已运行" to MedusaColors.Green
-                    else -> "未运行" to Color(0xFFE57373)
+                    else -> "今日未跑" to Color(0xFFE57373)
                 }
                 "farm.park" -> {
                     val box = farmStatus?.optInt("parkBoxQuota", -1) ?: -1
                     val claim = farmStatus?.optInt("parkTaskClaimable", 0) ?: 0
                     val todo = farmStatus?.optInt("parkTaskTodo", 0) ?: 0
                     when {
-                        !anySwitchOn(card) -> "未运行" to Color(0xFFE57373)
+                        !anySwitchOn(card) -> "已关闭" to Color(0xFFE57373)
                         cardRunning(card) -> "运行中" to Color(0xFFF4C66F)
                         farmStatus == null -> "未同步" to Color(0xFFE57373)
                         box > 0 -> "可开宝箱 $box" to MedusaColors.Gold
@@ -1649,7 +1674,7 @@ private fun DomainContent(
                 "farm.kitchen" -> {
                     val cook = farmStatus?.optInt("kitchenCookTimes", -1) ?: -1
                     when {
-                        !anySwitchOn(card) -> "未运行" to Color(0xFFE57373)
+                        !anySwitchOn(card) -> "已关闭" to Color(0xFFE57373)
                         cardRunning(card) -> "运行中" to Color(0xFFF4C66F)
                         farmStatus == null -> "未同步" to Color(0xFFE57373)
                         farmStatus?.optBoolean("kitchenDailyMaterial", false) == true ->
@@ -1659,7 +1684,7 @@ private fun DomainContent(
                     }
                 }
                 "farm.sunflower" -> when {
-                    !switchOn -> "未运行" to Color(0xFFE57373)
+                    !switchOn -> "已关闭" to Color(0xFFE57373)
                     sunflowerStatus == null -> "未同步" to Color(0xFFE57373)
                     cardRunning(card) -> "运行中" to Color(0xFFF4C66F)
                     cardRanToday(card) -> "已运行" to MedusaColors.Green
@@ -1668,7 +1693,7 @@ private fun DomainContent(
                     else -> "无葵花籽" to MedusaColors.Muted
                 }
                 "farm.family" -> when {
-                    !anySwitchOn(card) -> "未运行" to Color(0xFFE57373)
+                    !anySwitchOn(card) -> "已关闭" to Color(0xFFE57373)
                     cardRunning(card) -> "运行中" to Color(0xFFF4C66F)
                     farmStatus == null -> "未同步" to Color(0xFFE57373)
                     farmStatus?.optString("spaceType") == "ChickFamily" ->
@@ -1680,11 +1705,11 @@ private fun DomainContent(
                 "farm.friend" -> {
                     val count = farmStatus?.optInt("rewardFriendCount", -1) ?: -1
                     when {
-                        !anySwitchOn(card) -> "未运行" to Color(0xFFE57373)
+                        !anySwitchOn(card) -> "已关闭" to Color(0xFFE57373)
                         cardRunning(card) -> "运行中" to Color(0xFFF4C66F)
                         count > 0 -> "待打赏 $count" to MedusaColors.Gold
                         cardRanToday(card) -> "已运行" to MedusaColors.Green
-                        else -> "未运行" to Color(0xFFE57373)
+                        else -> "今日未跑" to Color(0xFFE57373)
                     }
                 }
                 "farm.life" -> {
@@ -1692,7 +1717,7 @@ private fun DomainContent(
                     val interact = farmStatus?.optString("ownInteractStatus", "") ?: ""
                     val diary = farmStatus?.optInt("diaryUnreadCount", 0) ?: 0
                     when {
-                        !anySwitchOn(card) -> "未运行" to Color(0xFFE57373)
+                        !anySwitchOn(card) -> "已关闭" to Color(0xFFE57373)
                         cardRunning(card) -> "运行中" to Color(0xFFF4C66F)
                         farmStatus == null -> "未同步" to Color(0xFFE57373)
                         diary > 0 -> "日记未读 $diary" to MedusaColors.Gold
@@ -1713,7 +1738,7 @@ private fun DomainContent(
                 "orchard.fertilizer" -> {
                     val packet = orchardStatus?.optJSONObject("fertilizer")
                     when {
-                        !switchOn -> "未运行" to Color(0xFFE57373)
+                        !switchOn -> "已关闭" to Color(0xFFE57373)
                         packet == null -> "未同步" to Color(0xFFE57373)
                         packet.optString("status") == "todayFertilizerFinish" -> "已领" to MedusaColors.Green
                         packet.optString("status") == "todayFertilizerWaitTake" ->
@@ -1733,7 +1758,7 @@ private fun DomainContent(
                 "orchard.sign" -> {
                     val sign = orchardStatus?.optJSONObject("sign")
                     when {
-                        !switchOn -> "未运行" to Color(0xFFE57373)
+                        !switchOn -> "已关闭" to Color(0xFFE57373)
                         sign == null -> "未同步" to Color(0xFFE57373)
                         sign.optBoolean("signed", false) ->
                             "已签 · 连续 ${sign.optInt("continuousCount", 0)} 天" to MedusaColors.Green
@@ -1749,7 +1774,7 @@ private fun DomainContent(
                     val cost = account?.optInt("wateringCost", 0) ?: 0
                     val happy = account?.optLong("happyPoint", 0L) ?: 0L
                     when {
-                        !switchOn -> "未运行" to Color(0xFFE57373)
+                        !switchOn -> "已关闭" to Color(0xFFE57373)
                         account == null -> "未同步" to Color(0xFFE57373)
                         used >= limit -> "已施满" to MedusaColors.Green
                         cost > 0 && happy < cost -> "肥料不足" to Color(0xFFE57373)
@@ -1763,7 +1788,7 @@ private fun DomainContent(
                         .filterIsInstance<BooleanModelField>()
                         .firstOrNull { it.code == "drawGameCenterAward" }?.value == true
                     when {
-                        !anySwitchOn(card) -> "未运行" to Color(0xFFE57373)
+                        !anySwitchOn(card) -> "已关闭" to Color(0xFFE57373)
                         eggs == null && orchardParkSummary == null -> "未同步" to Color(0xFFE57373)
                         awardOn && (eggs?.optInt("unsmashed", 0) ?: 0) > 0 ->
                             "可砸 ${eggs!!.optInt("unsmashed", 0)} 个" to MedusaColors.Gold
@@ -1775,7 +1800,7 @@ private fun DomainContent(
                 "orchard.draw" -> {
                     val balance = orchardStatus?.optJSONObject("draw")?.optInt("balance", -1) ?: -1
                     when {
-                        !switchOn -> "未运行" to Color(0xFFE57373)
+                        !switchOn -> "已关闭" to Color(0xFFE57373)
                         orchardDrawSummary == null && balance < 0 -> "未同步" to Color(0xFFE57373)
                         balance > 0 -> "可抽 $balance 次" to MedusaColors.Gold
                         orchardDrawSummary != null -> taskStatus(orchardDrawSummary, true)
@@ -1785,7 +1810,7 @@ private fun DomainContent(
                 "orchard.challenge" -> {
                     val challenge = orchardStatus?.optJSONObject("challenge")
                     when {
-                        !switchOn -> "未运行" to Color(0xFFE57373)
+                        !switchOn -> "已关闭" to Color(0xFFE57373)
                         challenge == null -> "未同步" to Color(0xFFE57373)
                         !challenge.optBoolean("active", false) -> "未开启" to MedusaColors.Muted
                         cardRunning(card) -> "运行中" to Color(0xFFF4C66F)
@@ -1796,7 +1821,7 @@ private fun DomainContent(
                 "orchard.factory" -> {
                     val factory = orchardStatus?.optJSONObject("factory")
                     when {
-                        !switchOn -> "未运行" to Color(0xFFE57373)
+                        !switchOn -> "已关闭" to Color(0xFFE57373)
                         factory == null -> "未同步" to Color(0xFFE57373)
                         factory.optInt("collectable", 0) > 0 ->
                             "可收 ${factory.optInt("collectable", 0)} 罐" to MedusaColors.Gold
@@ -1857,12 +1882,12 @@ private fun DomainContent(
             "ocean.welcome" -> {
                 val ready = oceanStatus?.optInt("welcomeReady", -1) ?: -1
                 when {
-                    !switchOn -> "未运行" to Color(0xFFE57373)
+                    !switchOn -> "已关闭" to Color(0xFFE57373)
                     cardRunning(card) -> "运行中" to Color(0xFFF4C66F)
                     ready > 0 -> "可找回 $ready" to MedusaColors.Green
                     welcomeName.isNotBlank() -> "已找回 $welcomeName" to MedusaColors.Green
                     cardRanToday(card) -> "无可找回" to MedusaColors.Muted
-                    else -> "未运行" to Color(0xFFE57373)
+                    else -> "今日未跑" to Color(0xFFE57373)
                 }
             }
             else -> null
@@ -1990,10 +2015,10 @@ private fun DomainContent(
                             val cardSwitchOn = switchField?.value ?: allOn
                             if (flatDomain) {
                                 val status = flatStatusOverride(card, cardSwitchOn) ?: when {
-                                    enabledCount == 0 -> "未运行" to Color(0xFFE57373)
+                                    enabledCount == 0 -> "已关闭" to Color(0xFFE57373)
                                     cardRunning(card) -> "运行中" to Color(0xFFF4C66F)
                                     cardRanToday(card) -> "已运行" to MedusaColors.Green
-                                    else -> "未运行" to Color(0xFFE57373)
+                                    else -> "今日未跑" to Color(0xFFE57373)
                                 }
                                 FlatCardView(
                                     card = card,
@@ -2016,7 +2041,7 @@ private fun DomainContent(
                                     } else {
                                         null
                                     },
-                                    onOpenDetail = if (card.id.endsWith(".settings")) {
+                                    onOpenDetail = if (card.id.endsWith(".settings") || card.id == "forest.friends") {
                                         { openCard(card) }
                                     } else if (
                                         flatDomain && detailCodes(card).isNotEmpty()
@@ -2060,7 +2085,12 @@ private fun DomainContent(
             }
             Spacer(Modifier.height(8.dp))
             DomainToolbar(
-                onSave = { ConfigSync.save(activity, userId, true) },
+                onSave = {
+                    val result = ConfigSync.saveForced(activity, userId)
+                    if (!result.ok) {
+                        ToastUtil.show(activity, ConfigSync.failureMessage(result))
+                    }
+                },
                 onExport = {
                     runCatching {
                         val json = DomainConfigIO.exportJson(spec, domainFieldCodes)
@@ -2126,12 +2156,12 @@ private fun DomainCardView(
 ) {
     val shape = RoundedCornerShape(18.dp)
     val status = statusOverride ?: when {
-        forceOff -> "未运行" to Color(0xFFE57373)
+        forceOff -> "已关闭" to Color(0xFFE57373)
         card.type == DomainCardType.ENTRY -> "设置" to MedusaColors.Muted
-        enabledCount == 0 -> "未运行" to Color(0xFFE57373)
+        enabledCount == 0 -> "已关闭" to Color(0xFFE57373)
         ledgerRunning -> "运行中" to Color(0xFFF4C66F)
         ledgerRanToday -> "已运行" to MedusaColors.Green
-        else -> "未运行" to Color(0xFFE57373)
+        else -> "今日未跑" to Color(0xFFE57373)
     }
     Column(
         modifier
@@ -2274,21 +2304,13 @@ private fun FlatCardView(
                 "collectRobExpandEnergyEnable", "expiredEnergy", "pkEnergy", "energyPvp"
             )
         }
-        "forest.friends" -> booleans.filter { it.code == "collectGiftBox" }
-        "forest.water" -> booleans.filter {
-            it.code in setOf(
-                "returnWater", "waterFriendEnergySendChat", "waterFriendEnergyFirst",
-                "doubleWaterFriendEnergy", "partnerteamWater", "loveteamWater"
-            )
-        }
+        // 好友卡是入口卡：四个分段全部在详情页里，卡面只留摘要，避免十来个胶囊堆在一起
+        "forest.friends" -> emptyList()
         "forest.green" -> booleans.filter {
             it.code in setOf("greenLife", "marketBrowseTask", "greenRent", "readForest")
         }
         "forest.reward" -> booleans.filter { it.code == "receiveForestTaskAward" }
         "forest.park" -> booleans.filter { it.code == "drawGameCenterAward" }
-        "forest.hunt" -> booleans.filter {
-            it.code in setOf("ForestHunt", "ForestHuntDraw", "ForestHuntHelp")
-        }
         "forest.patrol" -> booleans.filter {
             it.code in setOf(
                 "userPatrol", "monopolyPatrol", "monopolyTasks",
@@ -2556,10 +2578,14 @@ private fun fieldLabel(field: BooleanModelField): String {
         "pkEnergy" -> return "榜单"
         "energyPvp" -> return "1V1挑战"
         "collectGiftBox" -> return "好友礼盒"
-        "returnWater" -> return "回赠好友"
-        "waterFriendEnergySendChat" -> return "浇水留言"
-        "waterFriendEnergyFirst" -> return "先浇水"
-        "doubleWaterFriendEnergy" -> return "重查次数"
+        "waterFriendEnable" -> return "好友浇水"
+        "waterMode" -> return "浇水方式"
+        "waterFriendType" -> return "每次克数"
+        "waterDailyLimit" -> return "每日上限"
+        "returnWater" -> return "回赠好友(旧)"
+        "waterFriendEnergySendChat" -> return "留话提醒"
+        "waterFriendEnergyFirst" -> return "优先执行"
+        "doubleWaterFriendEnergy" -> return "重复检查"
         "partnerteamWater" -> return "组队合种"
         "loveteamWater" -> return "真爱合种"
         "receiveForestTaskAward" -> return "活力值任务"

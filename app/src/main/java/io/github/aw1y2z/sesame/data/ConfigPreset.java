@@ -36,6 +36,10 @@ public final class ConfigPreset {
                 if (!"BOOLEAN".equals(field.getType())) {
                     continue;
                 }
+                if (isWaterSpend(code)) {
+                    // 浇水属于资源支出，必须由用户显式开启；预设不再自动打开
+                    continue;
+                }
                 boolean enable = !isExcluded(code) && !dependencyMissing(config, model, code);
                 if ("AntFarm".equals(model) && "enableSleep".equals(code)) {
                     // 睡觉是影响产蛋节奏的模式开关，保持默认关闭。
@@ -108,6 +112,22 @@ public final class ConfigPreset {
             return isEmpty(config, model, "usePropList");
         }
         return false;
+    }
+
+    /** 资源支出类浇水开关：一律交给用户显式开启。 */
+    private static boolean isWaterSpend(String code) {
+        switch (code) {
+            case "returnWater":
+            case "waterFriendEnable":
+            case "waterFriendEnergyFirst":
+            case "doubleWaterFriendEnergy":
+            case "partnerteamWater":
+            case "loveteamWater":
+            case "cooperateWater":
+                return true;
+            default:
+                return false;
+        }
     }
 
     /** 支付/交易/充值/捐赠/购买/社交邀请/组队模式/求助等硬边界。 */

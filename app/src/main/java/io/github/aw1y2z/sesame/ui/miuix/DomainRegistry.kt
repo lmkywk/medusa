@@ -38,6 +38,33 @@ internal object DomainRegistry {
     private fun name(field: ModelField<*>): String = field.name ?: ""
     private fun code(field: ModelField<*>): String = field.code ?: ""
 
+    /** 森林「好友」卡的分段：卡片详情页按这里的顺序分块显示，未列出的字段不进分段。 */
+    private val friendSections: Map<String, Set<String>> = linkedMapOf(
+        "收能量" to setOf(
+            "dontCollectList", "helpFriendCollectType", "helpFriendCollectList",
+            "helpFriendCollectListLimit", "collectGiftBox"
+        ),
+        "浇水" to setOf(
+            "waterFriendEnable", "waterMode", "waterFriendType", "waterDailyLimit", "waterFriendList",
+            "waterFriendEnergySendChat", "waterFriendEnergyFirst", "doubleWaterFriendEnergy"
+        ),
+        "合种" to setOf(
+            "partnerteamWater", "partnerteamWaterNum", "partnerteamWaterUntil",
+            "loveteamWater", "loveteamWaterNum"
+        ),
+        "寻宝互助" to setOf("ForestHunt", "ForestHuntDraw", "ForestHuntHelp", "ForestHuntHelpList")
+    )
+
+    private val FRIEND_CARD_CODES: Set<String> = friendSections.values.flatten().toSet()
+
+    fun sectionOrder(cardId: String): List<String> =
+        if (cardId == "forest.friends") friendSections.keys.toList() else emptyList()
+
+    fun sectionOf(cardId: String, code: String?): String? {
+        if (cardId != "forest.friends" || code == null) return null
+        return friendSections.entries.firstOrNull { code in it.value }?.key
+    }
+
     private val forestCards = listOf(
         // 兜底卡：未被下面 8 张卡匹配的字段都在这里，点箭头进入设置页
         DomainCardSpec("forest.settings", "森林设置", "", DomainCardType.ENTRY, MedusaColors.GreenDeep) { false },
@@ -49,19 +76,10 @@ internal object DomainRegistry {
                 "CollectBombEnergyLimit"
             )
         },
-        DomainCardSpec("forest.friends", "好友能量", "", DomainCardType.SWITCH, MedusaColors.Blue) { f ->
-            code(f) in setOf(
-                "dontCollectList", "helpFriendCollectType", "helpFriendCollectList",
-                "helpFriendCollectListLimit", "collectGiftBox"
-            )
-        },
-        DomainCardSpec("forest.water", "浇水与合种", "", DomainCardType.SWITCH, MedusaColors.Blue) { f ->
-            code(f) in setOf(
-                "returnWater", "returnWater10", "returnWater18", "returnWater33",
-                "waterFriendType", "waterFriendList", "waterFriendEnergySendChat",
-                "waterFriendEnergyFirst", "doubleWaterFriendEnergy",
-                "partnerteamWater", "partnerteamWaterNum", "loveteamWater", "loveteamWaterNum"
-            )
+        // 好友：收能量 / 浇水 / 合种 / 寻宝互助共用一张卡，名单统一走好友中心的常用名单
+        DomainCardSpec("forest.friends", "好友", "收能量 · 浇水 · 合种 · 互助",
+            DomainCardType.SWITCH, MedusaColors.Blue) { f ->
+            code(f) in FRIEND_CARD_CODES
         },
         DomainCardSpec("forest.green", "绿色能量", "", DomainCardType.SWITCH, MedusaColors.Green) { f ->
             code(f) in setOf("greenLife", "marketBrowseTask", "greenRent", "readForest")
@@ -76,11 +94,6 @@ internal object DomainRegistry {
             }),
         DomainCardSpec("forest.seckill", "活力值秒杀", "探针 / 自动抢", DomainCardType.SWITCH, MedusaColors.Gold) { f ->
             code(f) in setOf("vitalitySeckillProbe", "vitalitySeckillAutoBuy")
-        },
-        DomainCardSpec("forest.hunt", "森林寻宝", "", DomainCardType.SWITCH, MedusaColors.Purple) { f ->
-            code(f) in setOf(
-                "ForestHunt", "ForestHuntDraw", "ForestHuntHelp", "ForestHuntHelpList"
-            )
         },
         DomainCardSpec("forest.park", "森林乐园", "", DomainCardType.SWITCH, MedusaColors.Blue) { f ->
             code(f) == "drawGameCenterAward"

@@ -12,7 +12,7 @@ import java.util.Locale
 
 /**
  * 备份目录：Download/美杜莎备份/全量/ 与 /域/
- * 全量备份包含 sesame-M 根目录设置 JSON 和 config/<uid>/（配置、计划、历史、统计）。
+ * 全量备份包含数据根目录设置 JSON 和 config/<uid>/（配置、计划、历史、统计）。
  */
 internal object BackupManager {
 

@@ -1460,14 +1460,18 @@ public class AntOcean extends ModelTask {
             int rightsTimesLimit = task.optInt("rightsTimesLimit", 0);
             int remain = rightsTimesLimit > rightsTimes ? rightsTimesLimit - rightsTimes : 1;
             boolean progressed = false;
+            TaskAttemptPolicy.Site site = new TaskAttemptPolicy.Site("AntOceanAntiepTaskList", "海洋任务", taskType, sceneCode,
+                    (k) -> probeOceanStatus(sceneCode, taskType))
+                    // 本家值：任务场景 + ANTFOCEAN
+                    .withScene(sceneCode).withSource("ANTFOCEAN");
             for (int cnt = 0; cnt < remain; cnt++) {
+                // 多档任务只在最后一档核对列表：中间档逐档轮询 30 秒，一个 4 档任务光核对就烧 2 分钟，
+                // 占掉夜间批次一大半时间。中间档按响应放行，最终状态仍由最后一档的列表核对兜底。
+                TaskAttemptPolicy.Site tierSite = cnt < remain - 1 ? site.withTrustResponse() : site;
                 Outcome outcome = TaskAttemptPolicy.handle(
                         "ocean::" + sceneCode + "/" + taskType + "#" + (rightsTimes + cnt), taskTitle, null,
                         () -> attemptFinishOceanTask(sceneCode, taskType, taskTitle), Log::other,
-                        new TaskAttemptPolicy.Site("AntOceanAntiepTaskList", "海洋任务", taskType, sceneCode,
-                                (k) -> probeOceanStatus(sceneCode, taskType))
-                                // 本家值：任务场景 + ANTFOCEAN
-                                .withScene(sceneCode).withSource("ANTFOCEAN"));
+                        tierSite);
                 if (outcome == Outcome.UNABLE) {
                     OceanTaskLedger.recordFailure(UserIdMap.getCurrentUid(), sceneCode, taskType,
                             "REAL_GAMEPLAY", true);

@@ -30,6 +30,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.aw1y2z.sesame.BuildConfig
 import io.github.aw1y2z.sesame.R
 import io.github.aw1y2z.sesame.data.ViewAppInfo
 import io.github.aw1y2z.sesame.util.ToastUtil
@@ -74,7 +75,7 @@ fun AboutScreen(activity: MiuixAboutActivity) {
 
             CardColumn {
                 AboutRow("版本", "V${ViewAppInfo.getAppVersion()}")
-                AboutRow("模块框架", "libxposed API 102")
+                AboutRow("模块框架", "libxposed API ${BuildConfig.LIBXPOSED_API}")
                 AboutRow("基线", "Sesame-M 1.5.3")
                 AboutRow("免 ROOT 方案", "NPatch 1.0.9 内嵌")
             }

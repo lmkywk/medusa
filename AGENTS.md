@@ -47,17 +47,23 @@ Read it before changing code, configuration, or plans.
 ```bash
 # JDK 21 and Android SDK 37 are required.
 ./gradlew :app:testNormalDebugUnitTest --offline
-./gradlew :app:assembleNormalRelease --offline -Pversion=5.9.0
+# 公开版：API 101 / Medusa 目录 / 新装任务开关默认关闭
+./gradlew :app:assembleNormalRelease --offline -Pversion=5.11.0
+# 作者版：API 102 / sesame-M 目录 / 默认开关不变
+./gradlew :app:assembleNormalRelease --offline -Pversion=5.10.1 -PownerBuild=true
 ```
 
 Official release:
 
 ```bash
-bash tools/release.sh 5.9.0
+bash tools/release.sh 5.11.0            # public
+bash tools/release.sh 5.10.1 --owner    # author only
 ```
 
-`tools/release.sh` checks `module.prop` version, builds the module, patches the
-host with npatch, signs, and writes the delivery directory plus SHA-256 sums.
+`tools/release.sh` generates `META-INF/xposed/module.prop` from
+`app/module.prop.template`, checks the version/API profile, builds the module,
+patches the host with npatch, signs, and writes the delivery directory plus
+SHA-256 sums.
 The host APK and BKS keystore are local inputs and are never published.
 
 ## Update procedure

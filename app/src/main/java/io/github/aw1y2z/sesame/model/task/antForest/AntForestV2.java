@@ -249,6 +249,11 @@ public class AntForestV2 extends ModelTask {
     private ChoiceModelField waterFriendType;
     private BooleanModelField waterFriendEnergySendChat;
 
+    private BooleanModelField waterFriendEnable;
+    private ChoiceModelField waterMode;
+    private IntegerModelField waterDailyLimit;
+    private IntegerModelField waterLogicVersion;
+
     private BooleanModelField waterFriendEnergyFirst;
     private SelectAndCountModelField waterFriendList;
 
@@ -312,6 +317,7 @@ public class AntForestV2 extends ModelTask {
 
     private BooleanModelField partnerteamWater;
     private IntegerModelField partnerteamWaterNum;
+    private StringModelField partnerteamWaterUntil;
     private BooleanModelField ForestHunt;
     private BooleanModelField ipExchange;
     private IntegerModelField ipExchangeCount;
@@ -362,15 +368,20 @@ public class AntForestV2 extends ModelTask {
         //modelFields.addField(doubleCountLimit = new IntegerModelField("doubleCountLimit", "双击卡 | " + "使用次数", 6));
         //modelFields.addField(doubleCardTime = new ListModelField.ListJoinCommaToStringModelField("doubleCardTime", "双击卡 | 使用时间(范围)", ListUtil.newArrayList("0700" + "-0730")));
         //modelFields.addField(doubleCardConstant = new BooleanModelField("DoubleCardConstant", "双击卡 | 限时双击永动机", false));
+        modelFields.addField(waterLogicVersion = new IntegerModelField("waterLogicVersion", "浇水逻辑版本", 0, 0, 999));
+        modelFields.addField(waterFriendEnable = new BooleanModelField("waterFriendEnable", "好友浇水 | 总开关", false));
+        modelFields.addField(waterMode = new ChoiceModelField("waterMode", "浇水 | 方式", WaterMode.RETURN, WaterMode.nickNames).setDependsOn("waterFriendEnable"));
+        modelFields.addField(waterFriendType = new ChoiceModelField("waterFriendType", "浇水 | 每次克数", WaterFriendType.WATER_33, WaterFriendType.nickNames).setDependsOn("waterFriendEnable"));
+        modelFields.addField(waterDailyLimit = new IntegerModelField("waterDailyLimit", "浇水 | 每日上限(g)", 200, 50, 5000).setDependsOn("waterFriendEnable"));
+        modelFields.addField(waterFriendList = new SelectAndCountModelField("waterFriendList", "浇水 | 指定好友列表", new LinkedHashMap<>(), AlipayUser::getList, "请填写浇水次数(每日)", 1, 3).setDependsOn("waterMode"));
+        modelFields.addField(waterFriendEnergySendChat = new BooleanModelField("waterFriendEnergySendChat", "高级 | 浇水留话提醒", false).setDependsOn("waterFriendEnable"));
+        modelFields.addField(waterFriendEnergyFirst = new BooleanModelField("waterFriendEnergyFirst", "高级 | 浇水优先执行", false).setDependsOn("waterFriendEnable"));
+        modelFields.addField(doubleWaterFriendEnergy = new BooleanModelField("doubleWaterFriendEnergy", "高级 | 浇水重复检查", false).setDependsOn("waterFriendEnable"));
+        // 旧版回赠字段：仅作迁移数据源，不再参与运行与界面
         modelFields.addField(returnWater = new BooleanModelField("returnWater", "回赠好友能量 | 开启", false));
         modelFields.addField(returnWater10 = new IntegerModelField("returnWater10", "回赠 | 收满10g才回赠(0不限)", 10).setDependsOn("returnWater"));
         modelFields.addField(returnWater18 = new IntegerModelField("returnWater18", "回赠 | 收满18g才回赠(0不限)", 18).setDependsOn("returnWater"));
         modelFields.addField(returnWater33 = new IntegerModelField("returnWater33", "回赠 | 收满33g才回赠(0不限)", 33).setDependsOn("returnWater"));
-        modelFields.addField(waterFriendType = new ChoiceModelField("waterFriendType", "浇水 | 动作", WaterFriendType.WATER_00, WaterFriendType.nickNames));
-        modelFields.addField(waterFriendList = new SelectAndCountModelField("waterFriendList", "浇水 | 好友列表", new LinkedHashMap<>(), AlipayUser::getList, "请填写浇水次数(每日)", 1, 3));
-        modelFields.addField(waterFriendEnergySendChat = new BooleanModelField("waterFriendEnergySendChat", "浇水 | 留话提醒", false));
-        modelFields.addField(waterFriendEnergyFirst = new BooleanModelField("waterFriendEnergyFirst", "浇水 | 每次首先执行", false));
-        modelFields.addField(doubleWaterFriendEnergy = new BooleanModelField("doubleWaterFriendEnergy", "浇水 | 重新检查次数", false));
         modelFields.addField(helpFriendCollectType = new ChoiceModelField("helpFriendCollectType", "复活能量 | 动作", HelpFriendCollectType.NONE, HelpFriendCollectType.nickNames));
         modelFields.addField(helpFriendCollectList = new SelectModelField("helpFriendCollectList", "复活能量 | 好友列表", new LinkedHashSet<>(), AlipayUser::getList));
         modelFields.addField(helpFriendCollectListLimit = new IntegerModelField("helpFriendCollectListLimit", "复活好友能量下限(大于该值复活,0不限制)", 0, 0, 100000).setDependsOn("helpFriendCollectType"));
@@ -419,6 +430,7 @@ public class AntForestV2 extends ModelTask {
         modelFields.addField(ecoLifePaper = new BooleanModelField("ecoLifePaper", "绿色行动 | 减纸减塑", true).setDependsOn("ecoLife"));
         modelFields.addField(partnerteamWater = new BooleanModelField("partnerteamWater", "组队合种浇水", false));
         modelFields.addField(partnerteamWaterNum = new IntegerModelField("partnerteamWaterNum", "组队合种浇水" + "(g)", 10, 10, 5000).setDependsOn("partnerteamWater"));
+        modelFields.addField(partnerteamWaterUntil = new StringModelField("partnerteamWaterUntil", "组队合种 | 到期日(yyyy-MM-dd,空=长期)", "").setDependsOn("partnerteamWater"));
         modelFields.addField(loveteamWater = new BooleanModelField("loveteamWater", "真爱合种浇水", false));
         modelFields.addField(loveteamWaterNum = new IntegerModelField("loveteamWaterNum", "真爱合种浇水" + "(g)", 20, 20, 10000).setDependsOn("loveteamWater"));
         modelFields.addField(ForestHunt = new BooleanModelField("ForestHunt", "自动寻宝", false)
@@ -2165,16 +2177,10 @@ public class AntForestV2 extends ModelTask {
                     if (bizNo.isEmpty()) {
                         return;
                     }
-                    if (returnWater.getValue()) {
-                        int returnCount = 0;
-                        if (collected >= returnWater33.getValue()) {
-                            returnCount = 33;
-                        } else if (collected >= returnWater18.getValue()) {
-                            returnCount = 18;
-                        } else if (collected >= returnWater10.getValue()) {
-                            returnCount = 10;
-                        }
-                        if (returnCount > 0) {
+                    // 收后回浇：只在“收得多于等于单次克数”时回浇，克数与上限均由用户显式配置
+                    if (waterEnabled() && waterModeValue() == WaterMode.RETURN) {
+                        int returnCount = waterEnergyPerFriend();
+                        if (returnCount > 0 && collected >= returnCount) {
                             returnFriendWater(userId, bizNo, 1, returnCount);
                         }
                     }
@@ -2815,13 +2821,53 @@ public class AntForestV2 extends ModelTask {
         }
     }
 
+    /** 每次浇水克数；0 表示“不浇水”，运行期按跳过处理 */
+    private int waterEnergyPerFriend() {
+        Integer type = waterFriendType.getValue();
+        if (type == null || type < 0 || type >= WaterFriendType.waterEnergy.length) {
+            return 0;
+        }
+        return WaterFriendType.waterEnergy[type];
+    }
+
+    /** 当日已花浇水克数（与首页“今日浇水”同源，只统计好友浇水） */
+    private int waterSpentToday() {
+        return Statistics.getData(Statistics.TimeType.DAY, Statistics.DataType.WATERED);
+    }
+
+    /** 好友浇水每日上限余额；上限以用户显式设置为准，不再有“0=不限” */
+    private int waterBudgetRemaining() {
+        Integer limit = waterDailyLimit.getValue();
+        return (limit == null ? 200 : limit) - waterSpentToday();
+    }
+
+    private boolean waterEnabled() {
+        return Boolean.TRUE.equals(waterFriendEnable.getValue());
+    }
+
+    private int waterModeValue() {
+        Integer mode = waterMode.getValue();
+        return mode == null ? WaterMode.RETURN : mode;
+    }
+
     private void waterFriendEnergy() {
+        if (!waterEnabled()) {
+            return;
+        }
+        // 回浇模式在收能量路径里逐人触发，这里只处理固定名单
+        if (waterModeValue() != WaterMode.LIST) {
+            return;
+        }
         String taskUid = UserIdMap.getCurrentUid();
-        int waterEnergy = WaterFriendType.waterEnergy[waterFriendType.getValue()];
-        if (waterEnergy == 0) {
+        int waterEnergy = waterEnergyPerFriend();
+        if (waterEnergy <= 0) {
+            Log.record("好友浇水⏭总开关已开，但每次克数仍为“不浇水”，本轮跳过");
             return;
         }
         Map<String, Integer> friendMap = waterFriendList.getValue();
+        if (friendMap == null || friendMap.isEmpty()) {
+            return;
+        }
         for (Map.Entry<String, Integer> friendEntry : friendMap.entrySet()) {
             String uid = friendEntry.getKey();
             if (selfId.equals(uid)) {
@@ -2870,6 +2916,11 @@ public class AntForestV2 extends ModelTask {
             int energyId = getEnergyId(waterEnergy);
             label:
             for (int waterCount = 1; waterCount <= count; waterCount++) {
+                if (waterBudgetRemaining() < waterEnergy) {
+                    Log.record("好友浇水⏭今日上限已到(已浇" + waterSpentToday() + "g/上限"
+                            + waterDailyLimit.getValue() + "g)，停止浇水");
+                    break;
+                }
                 s = AntForestRpcCall.transferEnergy(userId, bizNo, energyId, waterFriendEnergySendChat.getValue() ? "Y" : "N");
                 TimeUtil.sleep(1500);
                 jo = new JSONObject(s);
@@ -2924,8 +2975,11 @@ public class AntForestV2 extends ModelTask {
     }
 
     private void doubleWaterFriendEnergy() {
+        if (!waterEnabled() || waterModeValue() != WaterMode.LIST) {
+            return;
+        }
         String taskUid = UserIdMap.getCurrentUid();
-        int waterEnergy = WaterFriendType.waterEnergy[waterFriendType.getValue()];
+        int waterEnergy = waterEnergyPerFriend();
         if (waterEnergy == 0) {
             return;
         }
@@ -3634,15 +3688,16 @@ public class AntForestV2 extends ModelTask {
         return null;
     }
 
-    /** 是否浇得动水：动作非"不浇水"且选了好友 */
+    /** 是否浇得动水：总开关开、克数非“不浇水”，指定好友模式下还要有人 */
     private boolean canWaterFriend() {
-        int type = waterFriendType.getValue();
-        if (type < 0 || type >= WaterFriendType.waterEnergy.length
-                || WaterFriendType.waterEnergy[type] == 0) {
+        if (!waterEnabled() || waterEnergyPerFriend() <= 0) {
             return false;
         }
-        Map<String, Integer> friendMap = waterFriendList.getValue();
-        return friendMap != null && !friendMap.isEmpty();
+        if (waterModeValue() == WaterMode.LIST) {
+            Map<String, Integer> friendMap = waterFriendList.getValue();
+            return friendMap != null && !friendMap.isEmpty();
+        }
+        return true;
     }
 
     /**
@@ -6323,7 +6378,27 @@ public class AntForestV2 extends ModelTask {
         return false;
     }
 
+    /** 组队合种是否已过到期日（yyyy-MM-dd，空或解析失败=长期有效） */
+    private boolean teamWaterExpired() {
+        String until = partnerteamWaterUntil.getValue();
+        if (until == null || until.trim().isEmpty()) {
+            return false;
+        }
+        try {
+            return java.time.LocalDate.now().isAfter(java.time.LocalDate.parse(until.trim()));
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
     private void teamCooperateWater() {
+        if (teamWaterExpired()) {
+            if (!Status.hasFlagToday("forest::teamWaterExpiredNotice")) {
+                Status.flagToday("forest::teamWaterExpiredNotice");
+                Log.record("组队合种⏰已过到期日(" + partnerteamWaterUntil.getValue() + ")，自动停止，请关闭开关或改期");
+            }
+            return;
+        }
         // 记录本次是否由本方法切到组队模式，只要是就得切回来
         boolean switchedToTeam = false;
         try {
@@ -6964,6 +7039,18 @@ public class AntForestV2 extends ModelTask {
 
         String[] nickNames = {"不浇水", "浇水10克", "浇水18克", "浇水33克", "浇水66克"};
         int[] waterEnergy = {0, 10, 18, 33, 66};
+    }
+
+    /**
+     * 好友浇水的两种来源：收能量后按人回浇，或按固定好友名单浇水。
+     * 两种方式共用「每次克数」和「每日上限」，上限以 Statistics 的当日浇水克数为准。
+     */
+    public interface WaterMode {
+
+        int RETURN = 0;
+        int LIST = 1;
+
+        String[] nickNames = {"收后回浇", "指定好友"};
     }
 
     public interface HelpFriendCollectType {

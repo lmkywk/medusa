@@ -756,7 +756,7 @@ fun HomeV2Tab(activity: MiuixMainActivity) {
         return if (last != null && isSameDayAsNow(last.startedAt)) {
             "已运行" to HomeGreen
         } else {
-            "未运行" to Color(0xFFE57373)
+            "今日未跑" to Color(0xFFE57373)
         }
     }
 

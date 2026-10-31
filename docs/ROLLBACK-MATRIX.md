@@ -1,7 +1,7 @@
 # 回退矩阵（4.0.x）
 
 同签名就地升级，宿主与模块必须成对回退。回退前先备份
-`sesame-M/config/<uid>/`、`appConfig.json`、`risk_state.json`、`ledger/`。
+`Medusa/config/<uid>/`、`appConfig.json`、`risk_state.json`、`ledger/`（作者自用包为 `sesame-M/`）。
 
 | 版本 | versionCode | 账本 schema | 配置 schema | 计划 schema | 可否直接被更高版本读取 | 降级注意 |
 | --- | --- | --- | --- | --- | --- | --- |

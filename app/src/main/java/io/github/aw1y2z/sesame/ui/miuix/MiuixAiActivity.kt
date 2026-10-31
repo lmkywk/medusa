@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,9 +46,19 @@ import java.util.Locale
  */
 class MiuixAiActivity : MiuixBaseActivity() {
 
+    internal var backHandler: (() -> Boolean)? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setAppContent { AiContent(this) }
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onBackPressed() {
+        if (backHandler?.invoke() == false) {
+            return
+        }
+        super.onBackPressed()
     }
 }
 
@@ -88,7 +99,7 @@ private fun AiContent(activity: MiuixAiActivity) {
 
     val dirty = form != saved
 
-    fun persist() {
+    fun persist(): Boolean {
         AppConfig.INSTANCE.aiSummaryEnabled = form.enabled
         AppConfig.INSTANCE.aiBaseUrl = form.baseUrl.trim()
         AppConfig.INSTANCE.aiModel = form.model.trim()
@@ -96,7 +107,9 @@ private fun AiContent(activity: MiuixAiActivity) {
         AppConfig.INSTANCE.aiMaxTokens = form.maxTokens.toIntOrNull() ?: 1024
         AppConfig.INSTANCE.aiManualHints = form.manualHints
         AppConfig.INSTANCE.aiSummaryHour = form.summaryHour
-        ConfigSync.saveAppConfig(context)
+        if (!ConfigSync.saveAppConfig(context)) {
+            return false
+        }
         try {
             context.sendBroadcast(
                 android.content.Intent("com.eg.android.AlipayGphone.sesame.reloadConfig")
@@ -107,10 +120,15 @@ private fun AiContent(activity: MiuixAiActivity) {
         saved = form
         savedAt = SimpleDateFormat("HH:mm:ss", Locale.CHINA).format(Date())
         ToastUtil.show(context, "AI 配置已保存")
+        return true
+    }
+
+    SideEffect {
+        activity.backHandler = { if (!dirty || persist()) true else false }
     }
 
     Scaffold(
-        topBar = { LogTopBar(title = "AI 分析（只读）", onBack = { activity.finish() }) },
+        topBar = { LogTopBar(title = "AI 分析（只读）", onBack = { if (!dirty || persist()) activity.finish() }) },
         containerColor = MiuixTheme.colorScheme.surface
     ) { padding ->
         Column(
@@ -172,7 +190,7 @@ private fun AiContent(activity: MiuixAiActivity) {
                         AlertDialog.Builder(context)
                             .setTitle("Bearer 令牌")
                             .setView(input)
-                            .setPositiveButton("保存") { _, _ ->
+                            .setPositiveButton("确定") { _, _ ->
                                 form = form.copy(token = input.text.toString())
                             }
                             .setNeutralButton("清除") { _, _ -> form = form.copy(token = "") }
@@ -268,9 +286,9 @@ private fun AiContent(activity: MiuixAiActivity) {
                 Text(
                     text = when {
                         testState.isNotEmpty() -> testState
-                        dirty -> "有未保存改动（改完点「保存配置」才会生效）"
+                        dirty -> "有未保存改动（点「保存配置」；直接返回也会自动保存）"
                         savedAt.isNotEmpty() -> "已保存 $savedAt"
-                        else -> "改完点「保存配置」；「测试连接」会先保存再发一条最小请求"
+                        else -> "改完点「保存配置」；直接返回会自动保存；「测试连接」会先保存再发一条最小请求"
                     },
                     fontSize = MedusaType.Body,
                     color = when (testOk) {

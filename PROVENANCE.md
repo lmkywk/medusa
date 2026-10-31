@@ -10,20 +10,20 @@ are not official.
 |---|---|
 | Product | Medusa |
 | Module package | `com.medusa.alipay` |
-| Public version | `5.9.0` |
-| `versionCode` | `59000` |
-| Release tag | `v5.9.0` |
-| Build commit | `0fda2ce` (private build mirror) |
-| Public snapshot | tag `v5.9.0` in this repository (authoritative source) |
-| Build fingerprint | `medusa-5.9.0-0fda2ce` |
+| Public version | `5.11.0` |
+| `versionCode` | `60100` |
+| Release tag | `v5.11.0` |
+| Build commit | `465e3ed` (private build mirror) |
+| Public snapshot | tag `v5.11.0` in this repository (authoritative source) |
+| Build fingerprint | `medusa-5.11.0-465e3ed` |
 | Release certificate SHA-256 | `0699038ea17842a49eaec941360e33723d1a547ad0c82f36932322265c986016` |
-| Module APK (arm64) SHA-256 | `ebba1fd0c30d9157311128f64365de85b62837aaed0d2538804e9a277db057ea` |
-| Module APK (universal) SHA-256 | `3a84aec2164a2997de3b562b8a9025bff24db893923ba6fa9a42233bf2cd568a` |
+| Module APK (arm64) SHA-256 | `97ecf7a5f5c6c02e7016285d9467e5ddec0c8ca88f6ec2eca1042bf987bff0e8` |
+| Module APK (universal) SHA-256 | `f52350b4cf4c19e8a664de8d2f8d664b6a35f543b084f6df1a2f1dedb50a5a21` |
 | Host APK | **not published**; user-supplied |
 | Signing key | **not published**; never commit it |
 
-`0fda2ce` is the private build-mirror commit used to produce the official
-binary. The public `v5.9.0` tag is the authoritative source snapshot; its
+`465e3ed` is the private build-mirror commit used to produce the official
+binary. The public `v5.11.0` tag is the authoritative source snapshot; its
 module code is identical. Verify authenticity with the APK hash and signing
 certificate above, not by guessing a private commit.
 
@@ -32,7 +32,7 @@ certificate above, not by guessing a private commit.
 The official build embeds:
 
 ```text
-MEDUSA_FINGERPRINT = medusa-5.9.0-0fda2ce
+MEDUSA_FINGERPRINT = medusa-5.11.0-465e3ed
 ```
 
 It is written to:
@@ -47,8 +47,8 @@ unofficial.
 ## How to verify an APK
 
 ```bash
-sha256sum Medusa-V5.9.0-module-arm64.apk
-apksigner verify --print-certs Medusa-V5.9.0-module-arm64.apk
+sha256sum Medusa-V5.11.0-module-arm64.apk
+apksigner verify --print-certs Medusa-V5.11.0-module-arm64.apk
 ```
 
 Compare the APK hash and certificate SHA-256 with the table above. Do not

@@ -263,7 +263,7 @@ public final class AiDailySummary {
             if (!file.exists()) {
                 return null;
             }
-            return new JSONObject(FileUtil.readFromFile(file));
+            return normalizeStored(new JSONObject(FileUtil.readFromFile(file)), day);
         } catch (Throwable t) {
             return null;
         }
@@ -281,10 +281,43 @@ public final class AiDailySummary {
                     newest = file;
                 }
             }
-            return new JSONObject(FileUtil.readFromFile(newest));
+            JSONObject result = new JSONObject(FileUtil.readFromFile(newest));
+            return normalizeStored(result, result.optString("day", ""));
         } catch (Throwable t) {
             return null;
         }
+    }
+
+    /**
+     * 历史摘要里被旧校验误杀的原始回复，在读盘时用当前规则重校验一次；
+     * 通过则补齐结构化字段并回写，避免用户为了看可读摘要再花一次模型调用。
+     */
+    private static JSONObject normalizeStored(JSONObject result, String day) {
+        if (result == null || result.optBoolean("structured", true)) {
+            return result;
+        }
+        String raw = result.optString("raw", "");
+        if (raw.isEmpty()) {
+            return result;
+        }
+        AiSafety.Validation validation = AiSafety.validate(raw);
+        if (!validation.valid) {
+            return result;
+        }
+        try {
+            result.put("structured", true);
+            result.put("headline", validation.json.optString("headline", ""));
+            result.put("failedDomains", validation.json.optJSONArray("failedDomains"));
+            result.put("causes", validation.json.optJSONArray("causes"));
+            result.put("suggestions", validation.json.optJSONArray("suggestions"));
+            result.remove("reason");
+            if (day != null && !day.isEmpty()) {
+                write(result, day);
+            }
+        } catch (Throwable t) {
+            Log.err(TAG, "修复历史摘要失败", t);
+        }
+        return result;
     }
 
     /** 最近 N 天的摘要（只取结论字段，供期末汇总）。 */

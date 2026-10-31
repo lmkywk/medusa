@@ -1,16 +1,44 @@
 apply plugin: 'com.android.application'
 apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 
+def version = project.getProperties().get("version")
+if (version == null || "unspecified".equalsIgnoreCase(version)) {
+    // 默认版本号；正式发布时由 CI 通过 -Pversion=<tag> 覆盖
+    version = "5.10.0"
+}
+// 分身里的 UI 试验包：只补演示数据，其余构建与正式包一致
+def uiDemo = project.hasProperty("uiDemo") || project.hasProperty("uiPreview")
+// 独立包名的 UI 试验包：可与正式版同机共存，数据目录和执行广播都与正式版隔离
+def uiPreview = project.hasProperty("uiPreview")
+// 两套构建：默认 public（GitHub/对外），-PownerBuild=true 为作者自用包。
+// public：API 101 兼容 FPA、数据目录 Medusa、新装任务/域开关全关；
+// owner：API 102、数据目录 sesame-M、默认开关保持原样。
+def ownerBuild = project.hasProperty("ownerBuild")
+def buildProfile = ownerBuild ? "owner" : "public"
+def dataDirName = ownerBuild ? "sesame-M" : "Medusa"
+def defaultAllOff = !ownerBuild
+def libxposedApiVersion = ownerBuild ? "102.0.0" : "101.0.1"
+def libxposedServiceVersion = ownerBuild ? "102.0.0" : "101.0.0"
+def libxposedMinApi = ownerBuild ? 102 : 101
+def libxposedTargetApi = ownerBuild ? 102 : 101
+def versionCodeOverride = project.getProperties().get("versionCode")
+def appVersionCode
+if (versionCodeOverride != null) {
+    appVersionCode = versionCodeOverride.toInteger()
+} else if (uiDemo) {
+    appVersionCode = 60001
+} else {
+    // 5.10.0 的历史 versionCode 是 60000；从它往上递增，保证覆盖安装不报降级。
+    // 5.10.1 → 60001，5.11.0 → 60100，6.0.0 → 69000。
+    def mv = (version =~ /^(\d+)\.(\d+)\.(\d+)/)
+    appVersionCode = mv.find()
+            ? (60000 + (mv.group(1) as int - 5) * 10000
+                    + (mv.group(2) as int - 10) * 100
+                    + (mv.group(3) as int))
+            : 60000
+}
+
 android {
-    def version = project.getProperties().get("version")
-    if (version == null || "unspecified".equalsIgnoreCase(version)) {
-        // 默认版本号；正式发布时由 CI 通过 -Pversion=<tag> 覆盖
-        version = "5.9.0"
-    }
-    // 分身里的 UI 试验包：只补演示数据，其余构建与正式包一致
-    def uiDemo = project.hasProperty("uiDemo") || project.hasProperty("uiPreview")
-    // 独立包名的 UI 试验包：可与正式版同机共存，数据目录和执行广播都与正式版隔离
-    def uiPreview = project.hasProperty("uiPreview")
     project.ext.appVersion = version
     // 取 git 信息：用 providers.exec 而不是 '.execute()'——
     // 前者把输出登记为配置输入（commit 变了配置缓存才会失效），且退出码可判；
@@ -45,11 +73,15 @@ android {
         minSdk 26
         //noinspection ExpiredTargetSdkVersion
         targetSdk 34
-        versionCode uiDemo ? 59001 : 59000
+        versionCode appVersionCode
         versionName version
 
         buildConfigField "boolean", "UI_DEMO", uiDemo ? "true" : "false"
         buildConfigField "boolean", "UI_PREVIEW", uiPreview ? "true" : "false"
+        buildConfigField "String", "DATA_DIR_NAME", "\"${dataDirName}\""
+        buildConfigField "boolean", "DEFAULT_ALL_OFF", defaultAllOff ? "true" : "false"
+        buildConfigField "String", "BUILD_PROFILE", "\"${buildProfile}\""
+        buildConfigField "int", "LIBXPOSED_API", "${libxposedMinApi}"
         buildConfigField "String", "MEDUSA_FINGERPRINT", "\"${medusaFingerprint}\""
         manifestPlaceholders = [appLabel: uiPreview ? "美杜莎·UI试验" : "@string/app_name"]
 
@@ -111,6 +143,12 @@ android {
             merges += "META-INF/xposed/**"
         }
     }
+    sourceSets {
+        main {
+            // module.prop 按 owner/public 生成（API 版本不同），不再维护两份静态文件
+            resources.srcDir(new File(project.layout.buildDirectory.get().asFile, "generated/moduleProp"))
+        }
+    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -123,8 +161,37 @@ android {
     }
 }
 
+def generatedModuleProp = layout.buildDirectory.dir("generated/moduleProp")
+def generatedModulePropFile = generatedModuleProp.map {
+    new File(it.asFile, "META-INF/xposed/module.prop")
+}
+def generateModuleProp = tasks.register("generateModuleProp") {
+    inputs.property("version", version.toString())
+    inputs.property("versionCode", appVersionCode.toString())
+    inputs.property("minApi", libxposedMinApi)
+    inputs.property("targetApi", libxposedTargetApi)
+    inputs.property("ownerBuild", ownerBuild)
+    outputs.file(generatedModulePropFile)
+    doLast {
+        def text = project.file("module.prop.template").text
+                .replace("@VERSION@", version.toString())
+                .replace("@VERSION_CODE@", appVersionCode.toString())
+                .replace("@MIN_API@", libxposedMinApi.toString())
+                .replace("@TARGET_API@", libxposedTargetApi.toString())
+                .replace("@AUTO_HOT_RELOAD@", ownerBuild ? "autoHotReload=false" : "")
+        def target = generatedModulePropFile.get()
+        target.parentFile.mkdirs()
+        target.text = text
+    }
+}
+tasks.named("preBuild").configure { dependsOn(generateModuleProp) }
+tasks.matching { it.name.startsWith("process") && it.name.endsWith("JavaRes") }.configureEach {
+    dependsOn(generateModuleProp)
+}
+
 androidComponents {
     onVariants(selector().withBuildType('release')) { variant ->
+        def ownerTag = ownerBuild ? "-owner" : ""
         variant.outputs.forEach { output ->
             // 按 ABI 区分产物名：arm64-v8a / armeabi-v7a；无 ABI filter 的为 universal 兜底包
             String abiTag = "-universal"
@@ -133,15 +200,15 @@ androidComponents {
                     abiTag = "-" + f.getIdentifier()
                 }
             }
-            output.outputFileName.set("Medusa-V${project.appVersion}${abiTag}.apk")
+            output.outputFileName.set("Medusa-V${project.appVersion}${ownerTag}${abiTag}.apk")
         }
     }
 }
 
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.8.0'
-    compileOnly 'io.github.libxposed:api:102.0.0'
-    implementation 'io.github.libxposed:service:102.0.0'
+    compileOnly "io.github.libxposed:api:${libxposedApiVersion}"
+    implementation "io.github.libxposed:service:${libxposedServiceVersion}"
     compileOnly group: 'org.projectlombok', name: 'lombok', version: '1.18.48'
     annotationProcessor group: 'org.projectlombok', name: 'lombok', version: '1.18.48'
     implementation 'com.elvishew:xlog:1.11.1'

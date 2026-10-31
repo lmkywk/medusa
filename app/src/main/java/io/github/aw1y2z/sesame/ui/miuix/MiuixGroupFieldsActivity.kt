@@ -93,6 +93,9 @@ class MiuixGroupFieldsActivity : MiuixBaseActivity() {
 
         /** 域页卡片标题；用于详情页顶栏 */
         const val EXTRA_CARD_TITLE = "cardTitle"
+
+        /** 域页卡片 id；有分段定义的卡（如森林「好友」）据此在详情页分块显示 */
+        const val EXTRA_CARD_ID = "cardId"
     }
 
     private var userId: String? = null
@@ -101,6 +104,7 @@ class MiuixGroupFieldsActivity : MiuixBaseActivity() {
     private var fieldFilter: Set<String>? = null
     private var includeHidden = false
     private var cardTitle: String? = null
+    private var cardId: String? = null
 
     internal var showPermissionDialog by mutableStateOf(false)
     internal var permissionMessage by mutableStateOf("")
@@ -117,6 +121,7 @@ class MiuixGroupFieldsActivity : MiuixBaseActivity() {
             ?.toSet()
         includeHidden = intent.getBooleanExtra(EXTRA_INCLUDE_HIDDEN, false)
         cardTitle = intent.getStringExtra(EXTRA_CARD_TITLE)
+        cardId = intent.getStringExtra(EXTRA_CARD_ID)
         // 从首页功能矩阵可直达本页,不一定经过配置页:必须在这里完成模型与账号配置加载,
         // 否则 Model.getGroupModelConfig 为空,页面只有搜索框、看不到任何字段
         ConfigPreload.prepare(userId)
@@ -132,7 +137,8 @@ class MiuixGroupFieldsActivity : MiuixBaseActivity() {
                         initialQuery = initialQuery,
                         fieldFilter = fieldFilter,
                         includeHidden = includeHidden,
-                        titleOverride = cardTitle
+                        titleOverride = cardTitle,
+                        cardId = cardId
                     )
                 } else {
                     top.yukonga.miuix.kmp.basic.Text("分组不存在: $code", color = MiuixTheme.colorScheme.error)
@@ -161,7 +167,11 @@ class MiuixGroupFieldsActivity : MiuixBaseActivity() {
      * 之前这里直接拦掉 null，正是「未获取到账号，改动未保存」的来源。
      */
     fun save(showNoChanges: Boolean = false): Boolean {
-        val result = ConfigSync.save(this, userId, showNoChanges)
+        val result = if (showNoChanges) {
+            ConfigSync.saveForced(this, userId)
+        } else {
+            ConfigSync.save(this, userId, false)
+        }
         if (result.ok) {
             return true
         }
@@ -202,7 +212,8 @@ fun GroupFieldsContent(activity: MiuixGroupFieldsActivity, userId: String?, grou
                        initialQuery: String? = null,
                        fieldFilter: Set<String>? = null,
                        includeHidden: Boolean = false,
-                       titleOverride: String? = null) {
+                       titleOverride: String? = null,
+                       cardId: String? = null) {
     // 父字段开关/选项变化后，依赖其显示的子字段需重新计算可见性，
     // 用 depVersion 作为 remember 键触发扁平行列表重建。
     var depVersion by remember { mutableStateOf(0) }
@@ -229,32 +240,52 @@ fun GroupFieldsContent(activity: MiuixGroupFieldsActivity, userId: String?, grou
             .toSet()
     }
     // 字段对象由 ConfigV2 单例持有，引用稳定；仅当分组或依赖版本变化时才重建。
-    val rows = remember(group, depVersion, fieldFilter, includeHidden) {
+    val sectionTitles = remember(cardId) { DomainRegistry.sectionOrder(cardId.orEmpty()) }
+    val rows = remember(group, depVersion, fieldFilter, includeHidden, cardId) {
         val list = ArrayList<GroupFieldsRow>()
         val modelConfigs = Model.getGroupModelConfig(group).values.filter { it.fields.isNotEmpty() }
         // 分组独立后单模型组的小节标题与顶栏组名重复；多模型组才需要标题区分
         val showHeader = modelConfigs.size > 1
+        // 先按原顺序摊平 (模型, 字段)，再决定按模型还是按卡片分段归档
+        val picked = ArrayList<Pair<String, ModelField<*>>>()
         modelConfigs.forEach { mc ->
-            val fields = mc.fields.values.filter { fieldFilter == null || it.code in fieldFilter }
-            if (showHeader) {
-                list.add(GroupFieldsRow.Header(key = "header:${mc.getCode()}", title = mc.name ?: ""))
-            }
-            // 过滤：依赖父字段但父未激活的子字段；域页显式入口要能先填值，允许跳过可见性
-            val visibleFields = fields.filter { f ->
-                (includeHidden && fieldFilter != null) || f.isVisible(mc)
-            }
-            visibleFields.forEachIndexed { index, field ->
-                list.add(
-                    GroupFieldsRow.Field(
-                        key = "field:${mc.getCode()}:${field.code}",
-                        modelCode = mc.getCode(),
-                        field = field,
-                        depth = if (field.dependsOn.isNullOrEmpty()) 0 else 1,
-                        first = index == 0,
-                        last = index == visibleFields.lastIndex
-                    )
+            mc.fields.values
+                .filter { fieldFilter == null || it.code in fieldFilter }
+                .filter { f -> (includeHidden && fieldFilter != null) || f.isVisible(mc) }
+                .forEach { picked.add(mc.getCode() to it) }
+        }
+        fun rowsOf(subset: List<Pair<String, ModelField<*>>>): List<GroupFieldsRow.Field> =
+            subset.mapIndexed { index, (modelCode, field) ->
+                GroupFieldsRow.Field(
+                    key = "field:$modelCode:${field.code}",
+                    modelCode = modelCode,
+                    field = field,
+                    depth = if (field.dependsOn.isNullOrEmpty()) 0 else 1,
+                    first = index == 0,
+                    last = index == subset.lastIndex
                 )
             }
+        if (sectionTitles.isEmpty()) {
+            modelConfigs.forEach { mc ->
+                val subset = picked.filter { it.first == mc.getCode() }
+                if (subset.isEmpty()) return@forEach
+                if (showHeader) {
+                    list.add(GroupFieldsRow.Header(key = "header:${mc.getCode()}", title = mc.name ?: ""))
+                }
+                list.addAll(rowsOf(subset))
+            }
+        } else {
+            // 卡片分段（如森林「好友」：收能量/浇水/合种/寻宝互助），顺序由卡片定义
+            val used = HashSet<String>()
+            sectionTitles.forEach { title ->
+                val subset = picked.filter { DomainRegistry.sectionOf(cardId.orEmpty(), it.second.code) == title }
+                if (subset.isEmpty()) return@forEach
+                list.add(GroupFieldsRow.Header(key = "section:$title", title = title))
+                list.addAll(rowsOf(subset))
+                subset.forEach { used.add(it.second.code ?: "") }
+            }
+            val rest = picked.filterNot { used.contains(it.second.code) }
+            if (rest.isNotEmpty()) list.addAll(rowsOf(rest))
         }
         list
     }
@@ -439,7 +470,11 @@ fun GroupFieldsContent(activity: MiuixGroupFieldsActivity, userId: String?, grou
                 ) { index ->
                     val (title, fields) = sections[index]
                     title?.let { SmallTitle(text = it) }
-                    val sorted = fields.sortedBy { categoryOrder(it.field.type) }
+                    val sortedAll = fields.sortedBy { categoryOrder(it.field.type) }
+                    // “高级 |”前缀的字段收进可折叠区：默认不展开，避免把资源支出类细项铺在最前面
+                    val advancedRows = sortedAll.filter { it.field.name.orEmpty().startsWith("高级 |") }
+                    val sorted = sortedAll.filterNot { it.field.name.orEmpty().startsWith("高级 |") }
+                    var advancedOpen by remember(index, fields.size) { mutableStateOf(false) }
                     CardColumn {
                         val emitted = HashSet<String>()
                         sorted.forEach { fieldRow ->
@@ -470,6 +505,47 @@ fun GroupFieldsContent(activity: MiuixGroupFieldsActivity, userId: String?, grou
                                                 if (dependencyCodes.contains(child.field.code)) bumpDependency else null,
                                             onPersistSwitch = persistSwitch
                                         )
+                                    }
+                                }
+                            }
+                        }
+                        if (advancedRows.isNotEmpty()) {
+                            key("advanced:" + (title ?: "_")) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { advancedOpen = !advancedOpen }
+                                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "高级设置（${advancedRows.size} 项）",
+                                        color = MiuixTheme.colorScheme.onBackground,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Spacer(Modifier.weight(1f))
+                                    Text(
+                                        if (advancedOpen) "收起" else "展开",
+                                        color = MiuixTheme.colorScheme.onBackground,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
+                            if (advancedOpen) {
+                                advancedRows.forEach { fieldRow ->
+                                    if (emitted.add(fieldRow.key)) {
+                                        key(fieldRow.key) {
+                                            GroupFieldRow(
+                                                activity = activity,
+                                                userId = userId,
+                                                groupCode = groupCode,
+                                                row = fieldRow,
+                                                onDependencyChanged =
+                                                    if (dependencyCodes.contains(fieldRow.field.code)) bumpDependency else null,
+                                                onPersistSwitch = persistSwitch
+                                            )
+                                        }
                                     }
                                 }
                             }

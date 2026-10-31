@@ -13,22 +13,20 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * API 102 临时迁移兼容层（桥接旧 XposedHelpers）。
+ * libxposed API 101/102 迁移兼容层（桥接旧 XposedHelpers）。
  *
  * <p>把旧 {@code XHelpers.findAndHookMethod} / {@code callMethod} / {@code findClass} 等映射到
- * libxposed API 102 的 {@link XposedModule#hook(Executable)} 与 Java 反射。
+ * libxposed 的 {@link XposedModule#hook(Executable)} 与 Java 反射。
  * 业务代码仅需把 {@code XHelpers.} 替换为 {@code XHelpers.} 即可，hook 逻辑保持不变。
  *
- * <p>此兼容层为迁移期间的临时方案，待后续逐步替换为原生 API 102 写法。
+ * <p>此兼容层只使用 API 101 已有的接口，公开版可同时跑 FPA 101 与 LSPosed/Vector 102。
  */
 public class XHelpers {
 
     private static final String TAG = "XHelpers";
     private static XposedModule sModule;
-    private static final AtomicInteger sHookSeq = new AtomicInteger(0);
     /** 标记"当前线程正在调用原方法"，避免 hook 里 callOriginal 又回到本 hook 造成递归 */
     private static final ThreadLocal<Boolean> IN_ORIGINAL_CALL = ThreadLocal.withInitial(() -> Boolean.FALSE);
 
@@ -200,7 +198,6 @@ public class XHelpers {
     public static XC_MethodHook.Unhook hookMember(java.lang.reflect.Member member, XC_MethodHook callback) {
         ensureInit();
         XposedInterface.HookHandle handle = sModule.hook((Executable) member)
-                .setId("xh_" + sHookSeq.incrementAndGet())
                 .setExceptionMode(XposedInterface.ExceptionMode.DEFAULT)
                 .intercept(chain -> {
                     XC_MethodHook.MethodHookParam param = new XC_MethodHook.MethodHookParam();

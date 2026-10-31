@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # 4.0.0 一键发布：版本 → 测试 → 构建 → npatch → 签名校验 → 交付 → SHA256 → 说明
-# 用法: bash tools/release.sh 4.0.0 [--skip-tests] [--no-patch]
+# 用法: bash tools/release.sh 4.0.0 [--owner] [--skip-tests] [--no-patch]
+#   默认 public：libxposed API 101 / Medusa 目录 / 新装任务开关全关
+#   --owner：作者自用包：API 102 / sesame-M 目录 / 默认开关不变
 # 失败即停（set -euo pipefail）；不安装、不连 adb。
 set -euo pipefail
 
@@ -16,13 +18,25 @@ fi
 
 SKIP_TESTS=0
 NO_PATCH=0
+OWNER=0
 for arg in "${@:2}"; do
   case "$arg" in
+    --owner) OWNER=1 ;;
     --skip-tests) SKIP_TESTS=1 ;;
     --no-patch) NO_PATCH=1 ;;
     *) echo "未知参数: $arg" >&2; exit 2 ;;
   esac
 done
+PROFILE_TAG=""
+EXPECTED_MIN_API=101
+PROFILE_NAME="public"
+PROFILE_LABEL=""
+if [[ "$OWNER" -eq 1 ]]; then
+  PROFILE_TAG="-owner"
+  EXPECTED_MIN_API=102
+  PROFILE_NAME="owner"
+  PROFILE_LABEL="_owner"
+fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MEDUSA="$ROOT"
@@ -87,16 +101,26 @@ else
   ./gradlew :app:testNormalDebugUnitTest --offline
 fi
 
-step "3. 构建模块 APK"
-PROP="$MEDUSA/app/src/main/resources/META-INF/xposed/module.prop"
+step "3. 构建模块 APK（${PROFILE_NAME}）"
+GRADLE_ARGS=(:app:assembleNormalRelease --offline -Pversion="$VERSION"
+  -PmedusaFingerprint="$FINGERPRINT")
+if [[ "$OWNER" -eq 1 ]]; then
+  GRADLE_ARGS+=(-PownerBuild=true)
+fi
+./gradlew "${GRADLE_ARGS[@]}"
+PROP="$MEDUSA/app/build/generated/moduleProp/META-INF/xposed/module.prop"
 grep -q "^version=${VERSION}$" "$PROP" \
   || fail "module.prop version 不是 ${VERSION}（框架市场会读这个字段）"
-./gradlew :app:assembleNormalRelease --offline -Pversion="$VERSION" \
-  -PmedusaFingerprint="$FINGERPRINT"
+grep -q "^minApiVersion=${EXPECTED_MIN_API}$" "$PROP" \
+  || fail "module.prop minApiVersion 不是 ${EXPECTED_MIN_API}（构建分版错误）"
+if [[ "$OWNER" -eq 1 ]]; then
+  grep -q "^autoHotReload=false$" "$PROP" \
+    || fail "owner 包缺少 autoHotReload=false"
+fi
 APK_DIR="$MEDUSA/app/build/outputs/apk/normal/release"
-UNIVERSAL="$APK_DIR/Medusa-V${VERSION}-universal.apk"
-ARM64="$APK_DIR/Medusa-V${VERSION}-arm64-v8a.apk"
-ARM32="$APK_DIR/Medusa-V${VERSION}-armeabi-v7a.apk"
+UNIVERSAL="$APK_DIR/Medusa-V${VERSION}${PROFILE_TAG}-universal.apk"
+ARM64="$APK_DIR/Medusa-V${VERSION}${PROFILE_TAG}-arm64-v8a.apk"
+ARM32="$APK_DIR/Medusa-V${VERSION}${PROFILE_TAG}-armeabi-v7a.apk"
 [[ -f "$UNIVERSAL" ]] || fail "缺少 universal 产物: $UNIVERSAL"
 [[ -f "$ARM64" ]] || fail "缺少 arm64 产物: $ARM64"
 [[ -f "$ARM32" ]] || fail "缺少 arm32 产物: $ARM32"
@@ -152,9 +176,9 @@ fi
 
 step "7. 组装交付目录"
 mkdir -p "$DELIVER"
-HOST_NAME="美杜莎_V${VERSION}_支付宝免root.apk"
-MOD_ARM_NAME="美杜莎_V${VERSION}_模块_arm64.apk"
-MOD_UNI_NAME="美杜莎_V${VERSION}_模块_universal.apk"
+HOST_NAME="美杜莎_V${VERSION}${PROFILE_LABEL}_支付宝免root.apk"
+MOD_ARM_NAME="美杜莎_V${VERSION}${PROFILE_LABEL}_模块_arm64.apk"
+MOD_UNI_NAME="美杜莎_V${VERSION}${PROFILE_LABEL}_模块_universal.apk"
 cp -f "$ARM64" "$DELIVER/$MOD_ARM_NAME"
 cp -f "$UNIVERSAL" "$DELIVER/$MOD_UNI_NAME"
 if [[ -n "$HOST" ]]; then
@@ -176,6 +200,12 @@ NOTES_TEMPLATE="$ROOT/docs/release-notes-${VERSION}.md"
   echo
   echo "版本与校验"
   echo "- 模块 ${VERSION} / commit ${COMMIT}${DIRTY} / branch ${BRANCH}"
+  echo "- 构建：${PROFILE_NAME} / libxposed API ${EXPECTED_MIN_API}"
+  if [[ "$OWNER" -eq 1 ]]; then
+    echo "- 目录：sesame-M；默认开关：保持原样；仅供作者自用，不对外分发"
+  else
+    echo "- 目录：Medusa；新装任务/域开关默认全关（老配置不重置）"
+  fi
   echo "- 宿主：支付宝 10.8.30.8000（versionCode 3610，npatch $(basename "$OUT_DIR")）"
   echo "- 签名证书 SHA-256：0699038e…6016（Medusa 正式证书）"
   echo "- SHA256：见同目录 SHA256SUMS.txt"

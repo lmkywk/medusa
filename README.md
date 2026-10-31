@@ -20,14 +20,21 @@ patch it locally, and sign it with your own key. See `BUILDING.md` and
 
 ## Current release
 
-- Module version: `5.9.0`
-- Plan layout: `layoutVersion=5` (24 plans; 15 nightly batch items)
+- Module version: `5.11.0`
+- Plan layout: `layoutVersion=8`
 - Tested host: Alipay `10.8.30.8000` on a Samsung Android 16 test device
-- Status: **early-access test baseline**. Targeted flows were verified on
-  2026-10-29; the full 02:00 batch on this exact build is still pending.
+- Status: **early-access test baseline**. Targeted flows and the
+  2026-10-31 owner canary were verified; a full multi-day soak is still running.
 - This is a tested baseline, not a guarantee for other host versions.
-- Known limitations: `docs/release-notes-5.9.0.md` and
+- Known limitations: `docs/release-notes-5.11.0.md` and
   `docs/AI-MAINTENANCE-MANUAL.md` §11.
+- Framework: the public build targets **libxposed API 101** and loads on both
+  FPA 101 and LSPosed/Vector 102. The author build stays on API 102.
+- Data directory: `Android/media/com.eg.android.AlipayGphone/Medusa` for the
+  public build; existing `sesame-M` data is copied on first launch and the old
+  directory is kept. The author build still uses `sesame-M`.
+- Defaults: new installs/new accounts start with all task/domain switches off;
+  existing configs are not reset. The author build keeps its previous defaults.
 
 ## Two ways to install
 
@@ -35,8 +42,8 @@ patch it locally, and sign it with your own key. See `BUILDING.md` and
 
 Download the signed module APK from this repository's **Releases** page:
 
-- `Medusa-V5.9.0-module-arm64.apk` for most arm64 devices;
-- `Medusa-V5.9.0-module-universal.apk` when unsure.
+- `Medusa-V5.11.0-module-arm64.apk` for most arm64 devices;
+- `Medusa-V5.11.0-module-universal.apk` when unsure.
 
 The release also contains `SHA256SUMS.txt`. The Alipay host APK is **not**
 included; patch your own host with npatch/LSPosed and install this module.
@@ -46,7 +53,8 @@ included; patch your own host with npatch/LSPosed and install this module.
 The module is a normal Xposed/LSPosed module:
 
 - package: `com.medusa.alipay`
-- module metadata: `app/src/main/resources/META-INF/xposed/module.prop`
+- module metadata: generated from `app/module.prop.template` into
+  `META-INF/xposed/module.prop` (API 101 for public, API 102 for author)
 - scope: `com.eg.android.AlipayGphone`
 - entry hook: `io.github.aw1y2z.sesame.hook.ApplicationHook`
 
@@ -94,7 +102,7 @@ Every official build carries a fingerprint that is written to
 `system_status.json` and `ai/handoff-<date>.json`, for example:
 
 ```text
-medusa-5.9.0-0fda2ce
+medusa-5.11.0-<build-commit>
 ```
 
 Before installing, compare it with `PROVENANCE.md`, which also records:
@@ -105,7 +113,7 @@ Before installing, compare it with `PROVENANCE.md`, which also records:
 - the build fingerprint.
 
 If the fingerprint, certificate, or APK hash does not match, do not install.
-See `PROVENANCE.md` for the exact values of 5.9.0.
+See `PROVENANCE.md` for the exact values of 5.11.0.
 
 ## Layout
 
@@ -121,11 +129,15 @@ and the build tools listed in `BUILDING.md`. No host APK or key is included.
 
 ```bash
 ./gradlew :app:testNormalDebugUnitTest
-./gradlew :app:assembleNormalRelease -Pversion=5.9.0
+# Public build (API 101, Medusa dir, new installs default off)
+./gradlew :app:assembleNormalRelease -Pversion=5.11.0
+# Author build (API 102, sesame-M dir, existing defaults)
+./gradlew :app:assembleNormalRelease -Pversion=5.10.1 -PownerBuild=true
 ```
 
-`tools/release.sh 5.9.0` documents the full module → npatch host → sign →
-delivery flow. The patched host is **your** artifact; do not redistribute it.
+`tools/release.sh 5.11.0` documents the full module → npatch host → sign →
+delivery flow; add `--owner` for the author package. The patched host is
+**your** artifact; do not redistribute it.
 
 ## License
 

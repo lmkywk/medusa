@@ -1,27 +1,11 @@
-# Build / IDE
 .gradle/
 .kotlin/
 build/
 app/build/
 app/null/
-*.iml
-.idea/
-
-# Local machine and signing secrets
 local.properties
 keystore.properties
+*.apk
 *.jks
 *.bks
 *.keystore
-
-# Host artifacts: never commit a patched Alipay APK
-*.apk
-*.apks
-deliver/
-_evidence/
-_upstream/
-*.log
-
-# Local user data / event exports
-*.jsonl
-!app/src/test/resources/replay/*.jsonl
